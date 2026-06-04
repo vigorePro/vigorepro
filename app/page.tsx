@@ -3,10 +3,10 @@ export default function Home() {
           <main className="flex min-h-screen flex-col items-center justify-center p-24">
                 <h1 className="text-4xl font-bold text-center">
                         VigorePro
-                </h1>h1>
+                </h1>
                 <p className="mt-4 text-xl text-gray-600 text-center">
                         SaaS de atendimento por IA para food service
-                </p>p>
-          </main>main>
+                </p>
+          </main>
         )
-}</main>
+}
