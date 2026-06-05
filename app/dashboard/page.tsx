@@ -1,7 +1,6 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
+import { Suspense } from 'react'
 import { useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -16,7 +15,7 @@ const STATUS_LABELS: Record<string, { label: string; cor: string; bg: string }> 
   cancelado: { label: 'Cancelado', cor: '#EF4444', bg: '#FEF2F2' },
 }
 
-export default function Dashboard() {
+function DashboardContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const slug = searchParams.get('slug') || ''
@@ -86,7 +85,7 @@ export default function Dashboard() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-500">Carregando dashboard...</p>
+          <p className="text-gray-500">Carregando...</p>
         </div>
       </div>
     )
@@ -94,7 +93,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white border-b px-4 py-3 flex items-center justify-between sticky top-0 z-10 shadow-sm">
         <div>
           <h1 className="text-lg font-bold text-gray-800">{estabelecimento?.nome || 'Dashboard'}</h1>
@@ -105,22 +103,12 @@ export default function Dashboard() {
             <p className="text-xs text-gray-400">Faturamento hoje</p>
             <p className="font-bold text-green-600">R$ {resumo.total.toFixed(2)}</p>
           </div>
-          <button
-            onClick={() => router.push('/cozinha?slug=' + slug)}
-            className="bg-gray-800 text-white px-3 py-1.5 rounded-lg text-sm"
-          >
-            Cozinha
-          </button>
-          <button
-            onClick={() => supabase.auth.signOut().then(() => router.push('/admin'))}
-            className="text-gray-400 text-sm px-2 py-1 rounded hover:bg-gray-100"
-          >
-            Sair
-          </button>
+          <button onClick={() => router.push('/cozinha?slug=' + slug)}
+            className="bg-gray-800 text-white px-3 py-1.5 rounded-lg text-sm">Cozinha</button>
+          <button onClick={() => supabase.auth.signOut().then(() => router.push('/admin'))}
+            className="text-gray-400 text-sm px-2 py-1 rounded hover:bg-gray-100">Sair</button>
         </div>
       </div>
-
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-3 p-4">
         <div className="bg-white rounded-xl p-3 shadow-sm text-center">
           <p className="text-2xl font-bold text-amber-600">{resumo.ativos}</p>
@@ -135,8 +123,6 @@ export default function Dashboard() {
           <p className="text-xs text-gray-500">Concluidos</p>
         </div>
       </div>
-
-      {/* Abas */}
       <div className="flex border-b bg-white mx-4 rounded-t-xl overflow-hidden shadow-sm">
         {(['producao', 'entrega', 'historico'] as const).map(aba => (
           <button key={aba} onClick={() => setAbaAtiva(aba)}
@@ -147,17 +133,10 @@ export default function Dashboard() {
           </button>
         ))}
       </div>
-
-      {/* Content */}
       <div className="p-4 space-y-3">
         {abaAtiva === 'producao' && (
           <>
-            {ativos.length === 0 && (
-              <div className="text-center py-12 text-gray-400">
-                <p className="text-4xl mb-2">OK</p>
-                <p>Nenhum pedido ativo</p>
-              </div>
-            )}
+            {ativos.length === 0 && <div className="text-center py-12 text-gray-400"><p>Nenhum pedido ativo</p></div>}
             {ativos.map(pedido => {
               const st = STATUS_LABELS[pedido.status] || STATUS_LABELS.pendente
               return (
@@ -168,7 +147,7 @@ export default function Dashboard() {
                       <span className="ml-2 text-sm font-medium text-gray-700">{pedido.cliente_nome}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs px-2 py-1 rounded-full font-medium" style={{ color: st.cor, backgroundColor: st.bg + '80' }}>{st.label}</span>
+                      <span className="text-xs px-2 py-1 rounded-full font-medium" style={{ color: st.cor }}>{st.label}</span>
                       <span className="text-xs text-gray-400">{pedido.tipo_entrega === 'delivery' ? 'Delivery' : 'Retirada'}</span>
                     </div>
                   </div>
@@ -208,15 +187,9 @@ export default function Dashboard() {
             })}
           </>
         )}
-
         {abaAtiva === 'entrega' && (
           <>
-            {emEntrega.length === 0 && (
-              <div className="text-center py-12 text-gray-400">
-                <p className="text-4xl mb-2">OK</p>
-                <p>Nenhum pedido aguardando entrega</p>
-              </div>
-            )}
+            {emEntrega.length === 0 && <div className="text-center py-12 text-gray-400"><p>Nenhum pedido aguardando entrega</p></div>}
             {emEntrega.map(pedido => (
               <div key={pedido.id} className="bg-white rounded-xl shadow-sm p-4">
                 <div className="flex items-center justify-between mb-2">
@@ -234,7 +207,6 @@ export default function Dashboard() {
             ))}
           </>
         )}
-
         {abaAtiva === 'historico' && (
           <>
             {historico.slice(0, 20).map(pedido => (
@@ -246,14 +218,14 @@ export default function Dashboard() {
                 <span className="font-bold text-gray-500">R$ {pedido.total?.toFixed(2)}</span>
               </div>
             ))}
-            {historico.length === 0 && (
-              <div className="text-center py-12 text-gray-400">
-                <p>Nenhum pedido no historico</p>
-              </div>
-            )}
+            {historico.length === 0 && <div className="text-center py-12 text-gray-400"><p>Nenhum pedido no historico</p></div>}
           </>
         )}
       </div>
     </div>
   )
+}
+
+export default function Dashboard() {
+  return <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><p>Carregando...</p></div>}><DashboardContent /></Suspense>
 }
