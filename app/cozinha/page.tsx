@@ -1,15 +1,17 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Pedido } from '@/lib/supabase'
 
 const STATUS_CONFIG = {
-  pendente: { label: 'Novo', cor: '#EF4444', emoji: '🔔', proximo: 'confirmado', btnLabel: 'Confirmar' },
-  confirmado: { label: 'Confirmado', cor: '#F59E0B', emoji: '✅', proximo: 'em_preparo', btnLabel: 'Iniciar Preparo' },
-  em_preparo: { label: 'Em Preparo', cor: '#3B82F6', emoji: '👨‍🍳', proximo: 'pronto', btnLabel: 'Marcar Pronto' },
-  pronto: { label: 'Pronto', cor: '#10B981', emoji: '🎉', proximo: 'entregue', btnLabel: 'Entregue' },
+  pendente: { label: 'Novo', cor: '#EF4444', emoji: 'NOVO', proximo: 'confirmado', btnLabel: 'Confirmar' },
+  confirmado: { label: 'Confirmado', cor: '#F59E0B', emoji: 'OK', proximo: 'em_preparo', btnLabel: 'Iniciar Preparo' },
+  em_preparo: { label: 'Em Preparo', cor: '#3B82F6', emoji: 'PREP', proximo: 'pronto', btnLabel: 'Marcar Pronto' },
+  pronto: { label: 'Pronto', cor: '#10B981', emoji: 'PRONTO', proximo: 'entregue', btnLabel: 'Entregue' },
 } as const
 
 type StatusKey = keyof typeof STATUS_CONFIG
@@ -61,10 +63,9 @@ export default function Cozinha() {
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <div className="bg-gray-800 px-4 py-3 flex items-center justify-between">
-        <h1 className="text-lg font-bold">🍳 Cozinha — {agora.toLocaleTimeString('pt-BR')}</h1>
+        <h1 className="text-lg font-bold">Cozinha - {agora.toLocaleTimeString('pt-BR')}</h1>
         <span className="px-3 py-1 rounded-full text-sm bg-red-500">{pedidos.filter(p => p.status !== 'pronto').length} ativos</span>
       </div>
-
       <div className="flex gap-2 p-2 overflow-x-auto" style={{ height: 'calc(100vh - 56px)' }}>
         {(Object.keys(STATUS_CONFIG) as StatusKey[]).map(status => {
           const config = STATUS_CONFIG[status]
@@ -83,7 +84,7 @@ export default function Cozinha() {
                       <span className="text-gray-400 text-xs">{tempo(pedido.created_at)}</span>
                     </div>
                     <p className="text-sm font-medium">{pedido.cliente_nome}</p>
-                    <p className="text-gray-400 text-xs mb-2">{pedido.tipo_entrega === 'delivery' ? '🛵 Delivery' : '🏪 Retirada'}</p>
+                    <p className="text-gray-400 text-xs mb-2">{pedido.tipo_entrega === 'delivery' ? 'Delivery' : 'Retirada'}</p>
                     <div className="space-y-1 mb-3 border-t border-gray-700 pt-2">
                       {(pedido.itens as any[]).map((item: any, i: number) => (
                         <div key={i} className="flex gap-2 text-sm">
@@ -92,11 +93,11 @@ export default function Cozinha() {
                         </div>
                       ))}
                     </div>
-                    {pedido.observacoes && <p className="text-xs text-yellow-300 bg-yellow-900/20 rounded p-2 mb-2">💬 {pedido.observacoes}</p>}
+                    {pedido.observacoes && <p className="text-xs text-yellow-300 bg-yellow-900/20 rounded p-2 mb-2">{pedido.observacoes}</p>}
                     <button onClick={() => avancar(pedido)}
                       className="w-full py-2 rounded-lg text-white text-sm font-bold"
                       style={{ backgroundColor: config.cor }}>
-                      {config.btnLabel} →
+                      {config.btnLabel}
                     </button>
                   </div>
                 ))}
