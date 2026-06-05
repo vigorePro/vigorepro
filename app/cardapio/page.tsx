@@ -1,7 +1,6 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
+import { Suspense } from 'react'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -9,7 +8,7 @@ import type { Estabelecimento, Categoria, Produto } from '@/lib/supabase'
 
 type CarrinhoItem = Produto & { quantidade: number }
 
-export default function Cardapio() {
+function CardapioContent() {
   const searchParams = useSearchParams()
   const slug = searchParams.get('slug') || ''
 
@@ -19,7 +18,6 @@ export default function Cardapio() {
   const [carrinho, setCarrinho] = useState<CarrinhoItem[]>([])
   const [categoriaAtiva, setCategoriaAtiva] = useState<string>('')
   const [carregando, setCarregando] = useState(true)
-  const [mostrarCarrinho, setMostrarCarrinho] = useState(false)
 
   useEffect(() => {
     if (slug) carregarDados()
@@ -86,32 +84,22 @@ export default function Cardapio() {
 
   return (
     <div className="min-h-screen bg-amber-50 pb-32">
-      {/* Header */}
       <div className="bg-gradient-to-r from-amber-700 to-amber-500 text-white px-4 py-6">
         <h1 className="text-2xl font-bold">{estabelecimento.nome}</h1>
         <p className="text-amber-100 text-sm">{estabelecimento.endereco}</p>
         <p className="text-amber-200 text-xs mt-1">Pagamento na entrega</p>
       </div>
-
-      {/* Categorias */}
       <div className="bg-white border-b sticky top-0 z-10 shadow-sm">
         <div className="flex gap-2 px-4 py-3 overflow-x-auto">
           {categorias.map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => setCategoriaAtiva(cat.id)}
+            <button key={cat.id} onClick={() => setCategoriaAtiva(cat.id)}
               className={'px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ' +
-                (categoriaAtiva === cat.id
-                  ? 'bg-amber-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}
-            >
+                (categoriaAtiva === cat.id ? 'bg-amber-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}>
               {cat.nome}
             </button>
           ))}
         </div>
       </div>
-
-      {/* Produtos */}
       <div className="p-4 grid grid-cols-1 gap-3 max-w-lg mx-auto">
         {produtosCategoria.map(produto => {
           const noCarrinho = carrinho.find(i => i.id === produto.id)
@@ -150,17 +138,11 @@ export default function Cardapio() {
           <p className="text-center text-gray-400 py-8">Nenhum produto nesta categoria</p>
         )}
       </div>
-
-      {/* Carrinho flutuante */}
       {totalItens > 0 && (
         <div className="fixed bottom-4 left-4 right-4 max-w-lg mx-auto">
-          <button
-            onClick={irParaPedido}
-            className="w-full bg-amber-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg flex items-center justify-between px-6 hover:bg-amber-700 transition"
-          >
-            <span className="bg-amber-700 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold">
-              {totalItens}
-            </span>
+          <button onClick={irParaPedido}
+            className="w-full bg-amber-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg flex items-center justify-between px-6 hover:bg-amber-700 transition">
+            <span className="bg-amber-700 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold">{totalItens}</span>
             <span>Ver Pedido</span>
             <span>R$ {totalValor.toFixed(2)}</span>
           </button>
@@ -168,4 +150,8 @@ export default function Cardapio() {
       )}
     </div>
   )
+}
+
+export default function Cardapio() {
+  return <Suspense fallback={<div className="min-h-screen bg-amber-50 flex items-center justify-center"><p>Carregando...</p></div>}><CardapioContent /></Suspense>
 }
