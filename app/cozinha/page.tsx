@@ -1,22 +1,21 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
+import { Suspense } from 'react'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Pedido } from '@/lib/supabase'
 
 const STATUS_CONFIG = {
-  pendente: { label: 'Novo', cor: '#EF4444', emoji: 'NOVO', proximo: 'confirmado', btnLabel: 'Confirmar' },
-  confirmado: { label: 'Confirmado', cor: '#F59E0B', emoji: 'OK', proximo: 'em_preparo', btnLabel: 'Iniciar Preparo' },
-  em_preparo: { label: 'Em Preparo', cor: '#3B82F6', emoji: 'PREP', proximo: 'pronto', btnLabel: 'Marcar Pronto' },
-  pronto: { label: 'Pronto', cor: '#10B981', emoji: 'PRONTO', proximo: 'entregue', btnLabel: 'Entregue' },
+  pendente: { label: 'Novo', cor: '#EF4444', proximo: 'confirmado', btnLabel: 'Confirmar' },
+  confirmado: { label: 'Confirmado', cor: '#F59E0B', proximo: 'em_preparo', btnLabel: 'Iniciar Preparo' },
+  em_preparo: { label: 'Em Preparo', cor: '#3B82F6', proximo: 'pronto', btnLabel: 'Marcar Pronto' },
+  pronto: { label: 'Pronto', cor: '#10B981', proximo: 'entregue', btnLabel: 'Entregue' },
 } as const
 
 type StatusKey = keyof typeof STATUS_CONFIG
 
-export default function Cozinha() {
+function CozinhaContent() {
   const searchParams = useSearchParams()
   const slug = searchParams.get('slug') || ''
   const [pedidos, setPedidos] = useState<Pedido[]>([])
@@ -73,7 +72,7 @@ export default function Cozinha() {
           return (
             <div key={status} className="flex-shrink-0 w-72 flex flex-col">
               <div className="px-3 py-2 flex items-center justify-between mb-1" style={{ borderBottom: '2px solid ' + config.cor }}>
-                <span className="font-bold text-sm">{config.emoji} {config.label}</span>
+                <span className="font-bold text-sm">{config.label}</span>
                 <span className="text-sm font-bold" style={{ color: config.cor }}>{lista.length}</span>
               </div>
               <div className="flex flex-col gap-2 overflow-y-auto flex-1 pb-4">
@@ -109,4 +108,8 @@ export default function Cozinha() {
       </div>
     </div>
   )
+}
+
+export default function Cozinha() {
+  return <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center text-white"><p>Carregando...</p></div>}><CozinhaContent /></Suspense>
 }
