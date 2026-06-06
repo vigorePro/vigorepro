@@ -125,4 +125,75 @@ function PedidoContent() {
               className="w-full border rounded-xl px-3 py-2 text-sm"
               placeholder="Nome completo"
             />
-          </di
+          </div>
+
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Telefone / WhatsApp</label>
+            <input
+              required
+              value={telefone}
+              onChange={e => setTelefone(e.target.value)}
+              className="w-full border rounded-xl px-3 py-2 text-sm"
+              placeholder="(00) 00000-0000"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de entrega</label>
+            <select
+              value={tipoEntrega}
+              onChange={e => setTipoEntrega(e.target.value as 'delivery' | 'retirada')}
+              className="w-full border rounded-xl px-3 py-2 text-sm"
+            >
+              <option value="delivery">Delivery</option>
+              <option value="retirada">Retirada no local</option>
+            </select>
+          </div>
+
+          {tipoEntrega === 'delivery' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Endereco de entrega</label>
+              <input
+                required
+                value={endereco}
+                onChange={e => setEndereco(e.target.value)}
+                className="w-full border rounded-xl px-3 py-2 text-sm"
+                placeholder="Rua, numero, bairro"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Observacoes (opcional)</label>
+            <textarea
+              value={obs}
+              onChange={e => setObs(e.target.value)}
+              className="w-full border rounded-xl px-3 py-2 text-sm"
+              rows={2}
+              placeholder="Sem cebola, etc..."
+            />
+          </div>
+
+          {erro && <p className="text-red-500 text-sm">{erro}</p>}
+
+          <button
+            type="submit"
+            disabled={enviando}
+            className="w-full bg-amber-600 text-white py-3 rounded-xl font-semibold hover:bg-amber-700 disabled:opacity-50"
+          >
+            {enviando ? 'Enviando...' : 'Confirmar Pedido'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+export default function PedidoPage() {
+  return (
+    <Suspense fallback={<div>Carregando...</div>}>
+      <PedidoContent />
+    </Suspense>
+  )
+}
