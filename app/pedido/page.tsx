@@ -48,10 +48,12 @@ function PedidoContent() {
     const payload = {
       cliente_nome: nome,
       cliente_telefone: telefone,
+      tipo_entrega: tipoEntrega,
       endereco: tipoEntrega === 'delivery' ? endereco : 'Retirada no local',
       itens: JSON.parse(JSON.stringify(itens)),
       valor_total: total,
       observacoes: obs || null,
+      estabelecimento_id: est?.id || null,
     }
 
     const { data, error } = await supabase
@@ -60,31 +62,28 @@ function PedidoContent() {
       .select('numero_pedido')
       .single()
 
-    setEnviando(false)
-
     if (error) {
-      setErro('Erro: ' + error.message)
-    } else if (data) {
-      setNumeroPedido((data as { numero_pedido: number }).numero_pedido || 0)
-      setSucesso(true)
+      setErro('Erro ao enviar pedido: ' + error.message)
+      setEnviando(false)
+      return
     }
+
+    setNumeroPedido(data?.numero_pedido || 0)
+    setSucesso(true)
+    setEnviando(false)
   }
 
   if (sucesso) {
     return (
       <div className="min-h-screen bg-amber-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
+        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center">
           <div className="text-6xl mb-4">✅</div>
-          <h1 className="text-2xl font-bold text-green-600 mb-2">Pedido Confirmado!</h1>
-          <p className="text-gray-600 mb-4">Seu pedido foi recebido.</p>
-          {numeroPedido > 0 && (
-            <p className="text-lg font-semibold text-amber-700">Pedido #{numeroPedido}</p>
-          )}
-          <p className="text-sm text-gray-500 mt-4">Pagamento na entrega</p>
-          <button
-            onClick={() => router.push('/cardapio?slug=' + slug)}
-            className="mt-6 bg-amber-600 text-white px-6 py-2 rounded-xl hover:bg-amber-700"
-          >
+          <h2 className="text-2xl font-bold text-green-600 mb-2">Pedido Confirmado!</h2>
+          <p className="text-gray-600 mb-2">Seu pedido foi recebido.</p>
+          <p className="text-amber-600 font-bold text-xl mb-4">Pedido #{numeroPedido}</p>
+          <p className="text-sm text-gray-500 mb-6">{est?.nome === 'na entrega' ? 'Pagamento na entrega' : 'Pagamento na entrega'}</p>
+          <button onClick={() => router.push('/cardapio?slug=' + slug)}
+            className="w-full py-3 bg-amber-500 text-white rounded-xl font-medium">
             Voltar ao cardápio
           </button>
         </div>
@@ -95,47 +94,50 @@ function PedidoContent() {
   return (
     <div className="min-h-screen bg-amber-50 p-4">
       <div className="max-w-lg mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-amber-800">{est?.nome || 'Finalizando Pedido'}</h1>
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-amber-700">{est?.nome || 'Dolce&Dolce'}</h1>
           <p className="text-gray-500">Confirme seus dados</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow p-4 mb-4">
-          <h2 className="font-semibold text-gray-700 mb-3">Resumo</h2>
+        {/* Resumo */}
+        <div className="bg-white rounded-2xl shadow-sm p-4 mb-4">
+          <h3 className="font-bold text-gray-700 mb-3">Resumo</h3>
           {itens.map(item => (
-            <div key={item.id} className="flex justify-between text-sm py-1">
+            <div key={item.id} className="flex justify-between text-sm mb-1">
               <span>{item.quantidade}x {item.nome}</span>
-              <span className="font-medium">R$ {(item.preco * item.quantidade).toFixed(2)}</span>
+              <span>R$ {(item.preco * item.quantidade).toFixed(2)}</span>
             </div>
           ))}
-          <div className="border-t mt-3 pt-3 flex justify-between font-bold text-amber-700">
-            <span>Total</span>
-            <span>R$ {total.toFixed(2)}</span>
+          <div className="border-t mt-3 pt-3 flex justify-between font-bold">
+            <span className="text-gray-700">Total</span>
+            <span className="text-amber-600">R$ {total.toFixed(2)}</span>
           </div>
-          <p className="text-xs text-green-600 mt-2 text-center">Pagamento na entrega</p>
+          <p className="text-xs text-green-600 text-center mt-2">Pagamento na entrega</p>
         </div>
 
-        <form onSubmit={enviarPedido} className="bg-white rounded-2xl shadow p-4 space-y-4">
+        {/* Formulario */}
+        <form onSubmit={enviarPedido} className="bg-white rounded-2xl shadow-sm p-4 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Seu nome</label>
             <input
-              required
+              type="text"
+              placeholder="Nome completo"
               value={nome}
               onChange={e => setNome(e.target.value)}
-              className="w-full border rounded-xl px-3 py-2 text-sm"
-              placeholder="Nome completo"
+              required
+              className="w-full border rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-400"
             />
           </div>
 
-          
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Telefone / WhatsApp</label>
             <input
-              required
+              type="tel"
+              placeholder="(00) 00000-0000"
               value={telefone}
               onChange={e => setTelefone(e.target.value)}
-              className="w-full border rounded-xl px-3 py-2 text-sm"
-              placeholder="(00) 00000-0000"
+              required
+              className="w-full border rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-400"
             />
           </div>
 
@@ -144,7 +146,7 @@ function PedidoContent() {
             <select
               value={tipoEntrega}
               onChange={e => setTipoEntrega(e.target.value as 'delivery' | 'retirada')}
-              className="w-full border rounded-xl px-3 py-2 text-sm"
+              className="w-full border rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-400"
             >
               <option value="delivery">Delivery</option>
               <option value="retirada">Retirada no local</option>
@@ -155,11 +157,12 @@ function PedidoContent() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Endereco de entrega</label>
               <input
-                required
+                type="text"
+                placeholder="Rua, numero, bairro"
                 value={endereco}
                 onChange={e => setEndereco(e.target.value)}
-                className="w-full border rounded-xl px-3 py-2 text-sm"
-                placeholder="Rua, numero, bairro"
+                required
+                className="w-full border rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-400"
               />
             </div>
           )}
@@ -167,20 +170,20 @@ function PedidoContent() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Observacoes (opcional)</label>
             <textarea
+              placeholder="Sem cebola, etc..."
               value={obs}
               onChange={e => setObs(e.target.value)}
-              className="w-full border rounded-xl px-3 py-2 text-sm"
-              rows={2}
-              placeholder="Sem cebola, etc..."
+              rows={3}
+              className="w-full border rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-400 resize-none"
             />
           </div>
 
-          {erro && <p className="text-red-500 text-sm">{erro}</p>}
+          {erro && <p className="text-red-500 text-sm text-center">{erro}</p>}
 
           <button
             type="submit"
             disabled={enviando}
-            className="w-full bg-amber-600 text-white py-3 rounded-xl font-semibold hover:bg-amber-700 disabled:opacity-50"
+            className="w-full py-4 bg-amber-500 text-white rounded-xl font-bold text-lg disabled:opacity-50"
           >
             {enviando ? 'Enviando...' : 'Confirmar Pedido'}
           </button>
@@ -192,7 +195,7 @@ function PedidoContent() {
 
 export default function PedidoPage() {
   return (
-    <Suspense fallback={<div>Carregando...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-amber-50 flex items-center justify-center">Carregando...</div>}>
       <PedidoContent />
     </Suspense>
   )
