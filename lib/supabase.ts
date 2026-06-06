@@ -59,3 +59,25 @@ export type Pedido = {
   entregue_em: string | null
   entregador: string | null
 }
+
+
+export type Entregador = {
+  id: string
+  estabelecimento_id: string
+  nome: string
+  telefone: string | null
+  veiculo: string | null
+  status: 'disponivel' | 'em_entrega' | 'inativo'
+  criado_em: string
+}
+
+export type FilaEntregador = {
+  id: string
+  pedido_id: string
+  entregador_id: string | null
+  estabelecimento_id: string
+  status: 'aguardando' | 'aceito' | 'em_rota' | 'entregue' | 'cancelado'
+  atribuido_em: string | null
+  entregue_em: string | null
+  criado_em: string
+}
