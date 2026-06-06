@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 import type { Pedido } from '@/lib/supabase'
 
 const STATUS_CONFIG = {
-  pendente: { label: 'Novo', cor: '#EF4444', proximo: 'confirmado', btnLabel: 'Confirmar' },
+  em_producao: { label: 'Novo', cor: '#EF4444', proximo: 'em_preparo', btnLabel: 'Iniciar Preparo' },
   confirmado: { label: 'Confirmado', cor: '#F59E0B', proximo: 'em_preparo', btnLabel: 'Iniciar Preparo' },
   em_preparo: { label: 'Em Preparo', cor: '#3B82F6', proximo: 'pronto', btnLabel: 'Marcar Pronto' },
   pronto: { label: 'Pronto', cor: '#10B981', proximo: 'entregue', btnLabel: 'Entregue' },
@@ -27,89 +27,123 @@ function CozinhaContent() {
   }, [])
 
   useEffect(() => {
-    if (slug) iniciar()
+    if (!slug) return
+    carregarPedidos()
+    const canal = supabase.channel('cozinha-' + slug)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, carregarPedidos)
+      .subscribe()
+    return () => { supabase.removeChannel(canal) }
   }, [slug])
 
-  async function iniciar() {
-    const { data: est } = await supabase.from('estabelecimentos').select('id').eq('slug', slug).single()
+  async function carregarPedidos() {
+    const { data: est } = await supabase
+      .from('estabelecimentos').select('id').eq('slug', slug).single()
     if (!est) return
-    carregarPedidos(est.id)
-    supabase.channel('cozinha-' + est.id)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos', filter: 'estabelecimento_id=eq.' + est.id }, () => carregarPedidos(est.id))
-      .subscribe()
+    const { data } = await supabase
+      .from('pedidos')
+      .select('*')
+      .eq('estabelecimento_id', est.id)
+      .not('status', 'in', '(entregue,cancelado)')
+      .order('criado_em', { ascending: true })
+    setPedidos((data || []) as Pedido[])
   }
 
-  async function carregarPedidos(estId: string) {
-    const { data } = await supabase.from('pedidos').select('*')
-      .eq('estabelecimento_id', estId)
-      .in('status', ['pendente', 'confirmado', 'em_preparo', 'pronto'])
-      .order('created_at', { ascending: true })
-    setPedidos(data || [])
-  }
-
-  async function avancar(pedido: Pedido) {
+  async function avancarStatus(pedido: Pedido) {
     const config = STATUS_CONFIG[pedido.status as StatusKey]
     if (!config) return
     await supabase.from('pedidos').update({ status: config.proximo }).eq('id', pedido.id)
   }
 
-  function tempo(created_at: string) {
-    const diff = Math.floor((agora.getTime() - new Date(created_at).getTime()) / 1000)
-    if (diff < 60) return diff + 's'
-    return Math.floor(diff / 60) + 'min'
+  function tempoDecorrido(criado_em: string) {
+    const diff = Math.floor((agora.getTime() - new Date(criado_em).getTime()) / 1000)
+    const min = Math.floor(diff / 60)
+    const seg = diff % 60
+    return `${min}:${String(seg).padStart(2, '0')}`
   }
 
+  const ativos = pedidos.filter(p => ['em_producao', 'confirmado', 'em_preparo'].includes(p.status))
+  const prontos = pedidos.filter(p => p.status === 'pronto')
+
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      <div className="bg-gray-800 px-4 py-3 flex items-center justify-between">
-        <h1 className="text-lg font-bold">Cozinha - {agora.toLocaleTimeString('pt-BR')}</h1>
-        <span className="px-3 py-1 rounded-full text-sm bg-red-500">{pedidos.filter(p => p.status !== 'pronto').length} ativos</span>
+    <div className="min-h-screen bg-gray-900 text-white p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-bold">🍳 Cozinha</h1>
+        <div className="text-gray-400 text-sm">{agora.toLocaleTimeString('pt-BR')}</div>
       </div>
-      <div className="flex gap-2 p-2 overflow-x-auto" style={{ height: 'calc(100vh - 56px)' }}>
-        {(Object.keys(STATUS_CONFIG) as StatusKey[]).map(status => {
-          const config = STATUS_CONFIG[status]
-          const lista = pedidos.filter(p => p.status === status)
-          return (
-            <div key={status} className="flex-shrink-0 w-72 flex flex-col">
-              <div className="px-3 py-2 flex items-center justify-between mb-1" style={{ borderBottom: '2px solid ' + config.cor }}>
-                <span className="font-bold text-sm">{config.label}</span>
-                <span className="text-sm font-bold" style={{ color: config.cor }}>{lista.length}</span>
+
+      {prontos.length > 0 && (
+        <div className="mb-4">
+          <h2 className="text-green-400 font-bold mb-2">✅ PRONTOS ({prontos.length})</h2>
+          <div className="grid gap-2">
+            {prontos.map(pedido => (
+              <div key={pedido.id} className="bg-green-900 border border-green-500 rounded-xl p-3 flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-green-300">#{pedido.numero_pedido}</span>
+                  <span className="ml-2 text-white">{pedido.cliente_nome}</span>
+                  <span className="ml-2 text-xs text-green-400">{pedido.tipo_entrega === 'delivery' ? '🛵 Delivery' : '🏠 Retirada'}</span>
+                </div>
+                <span className="text-green-400 text-sm">{tempoDecorrido(pedido.criado_em)}</span>
               </div>
-              <div className="flex flex-col gap-2 overflow-y-auto flex-1 pb-4">
-                {lista.map(pedido => (
-                  <div key={pedido.id} className="bg-gray-800 rounded-xl p-3 border border-gray-700">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold text-lg" style={{ color: config.cor }}>#{pedido.numero}</span>
-                      <span className="text-gray-400 text-xs">{tempo(pedido.created_at)}</span>
-                    </div>
-                    <p className="text-sm font-medium">{pedido.cliente_nome}</p>
-                    <p className="text-gray-400 text-xs mb-2">{pedido.tipo_entrega === 'delivery' ? 'Delivery' : 'Retirada'}</p>
-                    <div className="space-y-1 mb-3 border-t border-gray-700 pt-2">
-                      {(pedido.itens as any[]).map((item: any, i: number) => (
-                        <div key={i} className="flex gap-2 text-sm">
-                          <span className="font-bold text-yellow-400">{item.quantidade}x</span>
-                          <span className="text-gray-200">{item.nome}</span>
-                        </div>
-                      ))}
-                    </div>
-                    {pedido.observacoes && <p className="text-xs text-yellow-300 bg-yellow-900/20 rounded p-2 mb-2">{pedido.observacoes}</p>}
-                    <button onClick={() => avancar(pedido)}
-                      className="w-full py-2 rounded-lg text-white text-sm font-bold"
-                      style={{ backgroundColor: config.cor }}>
-                      {config.btnLabel}
-                    </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <h2 className="text-amber-400 font-bold mb-2">🔥 EM PRODUCAO ({ativos.length})</h2>
+        {ativos.length === 0 && (
+          <div className="text-gray-500 text-center py-8">Nenhum pedido ativo</div>
+        )}
+        <div className="grid gap-3">
+          {ativos.map(pedido => {
+            const config = STATUS_CONFIG[pedido.status as StatusKey]
+            return (
+              <div key={pedido.id} className="bg-gray-800 rounded-xl overflow-hidden border border-gray-700">
+                <div className="px-4 py-2 flex items-center justify-between" style={{ backgroundColor: config?.cor + '22' }}>
+                  <div>
+                    <span className="font-bold text-lg" style={{ color: config?.cor }}>#{pedido.numero_pedido}</span>
+                    <span className="ml-2 font-medium">{pedido.cliente_nome}</span>
                   </div>
-                ))}
-                {lista.length === 0 && <p className="text-center py-4 text-gray-600 text-sm">Vazio</p>}
+                  <div className="text-right">
+                    <div className="text-xs" style={{ color: config?.cor }}>{config?.label}</div>
+                    <div className="text-xs text-gray-400">{tempoDecorrido(pedido.criado_em)}</div>
+                  </div>
+                </div>
+                <div className="px-4 py-3">
+                  <div className="space-y-1 mb-2">
+                    {(pedido.itens as any[]).map((item: any, i: number) => (
+                      <div key={i} className="flex justify-between text-sm">
+                        <span className="text-white">{item.quantidade}x {item.nome}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {pedido.observacoes && (
+                    <div className="text-xs bg-yellow-900 text-yellow-300 rounded p-2 mb-2">{pedido.observacoes}</div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">{pedido.tipo_entrega === 'delivery' ? '🛵 Delivery' : '🏠 Retirada'}</span>
+                    {config && (
+                      <button onClick={() => avancarStatus(pedido)}
+                        className="px-4 py-2 rounded-lg text-sm font-bold text-white"
+                        style={{ backgroundColor: config.cor }}>
+                        {config.btnLabel}
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
     </div>
   )
 }
 
 export default function Cozinha() {
-  return <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center text-white"><p>Carregando...</p></div>}><CozinhaContent /></Suspense>
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Carregando...</div>}>
+      <CozinhaContent />
+    </Suspense>
+  )
 }
