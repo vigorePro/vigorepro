@@ -34,24 +34,28 @@ export type Produto = {
   destaque: boolean
 }
 
-export type Pedido = {
-  id: string
-  estabelecimento_id: string
-  numero: number
-  status: 'pendente' | 'confirmado' | 'em_preparo' | 'pronto' | 'entregue' | 'cancelado'
-  tipo_entrega: 'delivery' | 'retirada' | 'mesa'
-  cliente_nome: string
-  cliente_telefone: string
-  cliente_endereco: string
-  itens: PedidoItem[]
-  total: number
-  observacoes: string
-  created_at: string
-}
-
 export type PedidoItem = {
   produto_id: string
   nome: string
   preco: number
   quantidade: number
+}
+
+export type Pedido = {
+  id: string
+  numero_pedido: number
+  estabelecimento_id: string | null
+  status: 'em_producao' | 'confirmado' | 'em_preparo' | 'pronto' | 'entregue' | 'cancelado'
+  tipo_entrega: 'delivery' | 'retirada' | 'mesa'
+  cliente_nome: string
+  cliente_telefone: string
+  endereco: string
+  itens: PedidoItem[]
+  valor_total: number
+  observacoes: string
+  criado_em: string
+  produzido_em: string | null
+  saiu_em: string | null
+  entregue_em: string | null
+  entregador: string | null
 }
