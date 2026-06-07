@@ -150,7 +150,7 @@ PEDIDO_CONFIRMADO:{"cliente_nome":"nome","itens":[{"nome":"item","preco":0.00,"q
 
     // Chama Claude AI
     const response = await anthropic.messages.create({
-      model: 'claude-3-haiku-20240307',
+      model: 'claude-3-sonnet-20240229',
       max_tokens: 1024,
       system: systemPrompt,
       messages,
