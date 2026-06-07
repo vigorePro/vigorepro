@@ -75,7 +75,7 @@ function DashboardContent() {
 
   async function atualizarStatus(pedidoId: string, novoStatus: string) {
     await supabase.from('pedidos').update({ status: novoStatus }).eq('id', pedidoId)
-    await carregarPedidos()
+    if (estabelecimento?.id) await carregarPedidos(estabelecimento.id)
   }
 
   const ativos = pedidos.filter(p => !['entregue', 'cancelado'].includes(p.status))
