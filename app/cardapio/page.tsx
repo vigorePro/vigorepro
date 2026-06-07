@@ -19,6 +19,7 @@ function CardapioContent() {
   const [carrinho, setCarrinho] = useState<CarrinhoItem[]>([])
   const [categoriaAtiva, setCategoriaAtiva] = useState<string>('')
   const [carregando, setCarregando] = useState(true)
+  const [naoEncontrado, setNaoEncontrado] = useState(false)
 
   useEffect(() => {
     if (slug) carregarDados()
@@ -26,7 +27,7 @@ function CardapioContent() {
 
   async function carregarDados() {
     const { data: est } = await supabase.from('estabelecimentos').select('*').eq('slug', slug).single()
-    if (!est) { setCarregando(false); return }
+    if (!est) { setNaoEncontrado(true); setCarregando(false); return }
     setEstabelecimento(est)
 
     const { data: cats } = await supabase.from('categorias').select('*').eq('estabelecimento_id', est.id).order('ordem')
@@ -62,6 +63,19 @@ function CardapioContent() {
   function irParaPedido() {
     const carrinhoEnc = encodeURIComponent(JSON.stringify(carrinho.map(i => ({ id: i.id, nome: i.nome, preco: i.preco, quantidade: i.quantidade }))))
     window.location.href = '/pedido?slug=' + slug + '&carrinho=' + carrinhoEnc
+  }
+
+  if (naoEncontrado) {
+    return (
+      <div className="min-h-screen bg-amber-50 flex items-center justify-center p-4">
+        <div className="text-center max-w-sm">
+          <div className="text-6xl mb-4">🍽️</div>
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">Restaurante nao encontrado</h1>
+          <p className="text-gray-500 mb-6">O estabelecimento <strong>{slug}</strong> nao existe ou nao esta ativo.</p>
+          <p className="text-sm text-gray-400">Verifique o link e tente novamente.</p>
+        </div>
+      </div>
+    )
   }
 
   if (carregando) {
