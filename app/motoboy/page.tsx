@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense } from 'react'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -35,6 +35,7 @@ function MotoboyContent() {
   const [estabelecimentoId, setEstabelecimentoId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [agora, setAgora] = useState(new Date())
+  const pedidosAnterior = useRef<number>(-1)
 
   useEffect(() => {
     const timer = setInterval(() => setAgora(new Date()), 1000)
@@ -46,6 +47,21 @@ function MotoboyContent() {
     const min = Math.floor(diff / 60)
     const seg = diff % 60
     return min + 'm' + seg.toString().padStart(2, '0') + 's'
+  }
+
+  function tocarBeep() {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.frequency.value = 880
+      gain.gain.setValueAtTime(0.3, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4)
+      osc.start(ctx.currentTime)
+      osc.stop(ctx.currentTime + 0.4)
+    } catch {}
   }
 
   const carregarDados = useCallback(async () => {
@@ -64,7 +80,12 @@ function MotoboyContent() {
       .eq('tipo_entrega', 'delivery')
       .in('status', ['pronto'])
       .order('criado_em', { ascending: true })
-    setPedidos(pedidosData || [])
+    const novosPedidos = pedidosData || []
+    if (pedidosAnterior.current >= 0 && novosPedidos.length > pedidosAnterior.current) {
+      tocarBeep()
+    }
+    pedidosAnterior.current = novosPedidos.length
+    setPedidos(novosPedidos)
     const { data: filaData } = await supabase
       .from('fila_entregadores')
       .select('*, pedidos(*)')
