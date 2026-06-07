@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Pedido } from '@/lib/supabase'
@@ -20,6 +20,7 @@ function CozinhaContent() {
   const slug = searchParams.get('slug') || ''
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [agora, setAgora] = useState(new Date())
+  const pedidosAnterior = useRef<number>(-1)
 
   useEffect(() => {
     const interval = setInterval(() => setAgora(new Date()), 1000)
@@ -35,6 +36,21 @@ function CozinhaContent() {
     return () => { supabase.removeChannel(canal) }
   }, [slug])
 
+  function tocarBeep() {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.frequency.value = 880
+      gain.gain.setValueAtTime(0.3, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4)
+      osc.start(ctx.currentTime)
+      osc.stop(ctx.currentTime + 0.4)
+    } catch {}
+  }
+
   async function carregarPedidos() {
     const { data: est } = await supabase
       .from('estabelecimentos').select('id').eq('slug', slug).single()
@@ -45,7 +61,12 @@ function CozinhaContent() {
       .eq('estabelecimento_id', est.id)
       .not('status', 'in', '(entregue,cancelado)')
       .order('criado_em', { ascending: true })
-    setPedidos((data || []) as Pedido[])
+    const novos = (data || []) as Pedido[]
+    if (pedidosAnterior.current >= 0 && novos.length > pedidosAnterior.current) {
+      tocarBeep()
+    }
+    pedidosAnterior.current = novos.length
+    setPedidos(novos)
   }
 
   async function avancarStatus(pedido: Pedido) {
