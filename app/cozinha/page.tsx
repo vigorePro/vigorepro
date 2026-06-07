@@ -52,6 +52,7 @@ function CozinhaContent() {
     const config = STATUS_CONFIG[pedido.status as StatusKey]
     if (!config) return
     await supabase.from('pedidos').update({ status: config.proximo }).eq('id', pedido.id)
+    await carregarPedidos()
   }
 
   function tempoDecorrido(criado_em: string) {
