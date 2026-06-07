@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Pedido, Estabelecimento } from '@/lib/supabase'
@@ -21,6 +21,7 @@ function DashboardContent() {
   const slug = searchParams.get('slug')
   const [estabelecimento, setEstabelecimento] = useState<Estabelecimento | null>(null)
   const [pedidos, setPedidos] = useState<Pedido[]>([])
+  const pedidosAnterior = useRef<number>(-1)
   const [abaAtiva, setAbaAtiva] = useState<'producao' | 'entrega' | 'historico'>('producao')
   const [carregando, setCarregando] = useState(true)
 
@@ -54,6 +55,21 @@ function DashboardContent() {
     setCarregando(false)
   }
 
+  function tocarBeep() {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.frequency.value = 880
+      gain.gain.setValueAtTime(0.3, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4)
+      osc.start(ctx.currentTime)
+      osc.stop(ctx.currentTime + 0.4)
+    } catch {}
+  }
+
   async function carregarPedidos(estId: string) {
     const { data } = await supabase
       .from('pedidos')
@@ -61,7 +77,13 @@ function DashboardContent() {
       .eq('estabelecimento_id', estId)
       .order('criado_em', { ascending: false })
       .limit(100)
-    setPedidos((data || []) as Pedido[])
+    const novos = (data || []) as Pedido[]
+    const ativos = novos.filter(p => !['entregue', 'cancelado'].includes(p.status))
+    if (pedidosAnterior.current >= 0 && ativos.length > pedidosAnterior.current) {
+      tocarBeep()
+    }
+    pedidosAnterior.current = ativos.length
+    setPedidos(novos)
   }
 
   function assinarRealtime(estId: string) {
