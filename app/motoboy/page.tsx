@@ -62,7 +62,7 @@ function MotoboyContent() {
       .select('*')
       .eq('estabelecimento_id', estab.id)
       .eq('tipo_entrega', 'delivery')
-      .in('status', ['pronto', 'em_producao', 'em_preparo'])
+      .in('status', ['pronto'])
       .order('criado_em', { ascending: true })
     setPedidos(pedidosData || [])
     const { data: filaData } = await supabase
