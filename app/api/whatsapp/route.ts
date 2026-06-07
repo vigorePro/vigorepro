@@ -150,7 +150,7 @@ PEDIDO_CONFIRMADO:{"cliente_nome":"nome","itens":[{"nome":"item","preco":0.00,"q
   ]
 
   const response = await anthropic.messages.create({
-    model: 'claude-3-haiku-20240307',
+    model: 'claude-3-5-sonnet-20241022',
     max_tokens: 1024,
     system: systemPrompt,
     messages,
