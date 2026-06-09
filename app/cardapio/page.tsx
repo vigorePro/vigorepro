@@ -134,7 +134,7 @@ function CardapioContent() {
       <header className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a1a] via-[#111] to-[#0d0d0d]" />
         <div className="absolute top-0 right-0 w-64 h-64 bg-amber-600 opacity-10 rounded-full -translate-y-1/2 translate-x-1/2" />
-        <div className="relative z-10 px-4 pt-8 pb-6 max-w-5xl mx-auto flex items-center justify-between">
+        <div className="relative z-10 px-4 pt-8 pb-6 max-w-2xl mx-auto flex items-center justify-between">
           <div>
             <p className="text-amber-400 text-xs tracking-[0.2em] uppercase font-medium mb-1">Cardápio Digital</p>
             <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white leading-tight">{estabelecimento.nome}</h1>
@@ -160,18 +160,20 @@ function CardapioContent() {
       </header>
 
       <nav className="bg-[#161616] border-b border-white/5 sticky top-0 z-20 shadow-xl">
-        <div className="flex gap-0 overflow-x-auto max-w-5xl mx-auto px-2">
+        <div className="flex gap-0 overflow-x-auto max-w-2xl mx-auto px-2">
           {categorias.map(cat => (
             <button key={cat.id} onClick={() => setCategoriaAtiva(cat.id)}
               className={`relative px-5 py-4 text-sm font-semibold whitespace-nowrap transition-colors flex-shrink-0 ${categoriaAtiva === cat.id ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}>
               {cat.nome}
-              {categoriaAtiva === cat.id && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500 rounded-t" />}
+              {categoriaAtiva === cat.id && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-400 rounded-t" />
+              )}
             </button>
           ))}
         </div>
       </nav>
 
-      <main className="max-w-5xl mx-auto px-4 py-8 pb-36">
+      <main className="max-w-2xl mx-auto px-4 py-8 pb-36">
         <div className="mb-6">
           <h2 className="text-xl font-bold text-white">{categorias.find(c => c.id === categoriaAtiva)?.nome}</h2>
           <p className="text-gray-500 text-sm mt-0.5">{produtosCategoria.length} {produtosCategoria.length === 1 ? 'item disponível' : 'itens disponíveis'}</p>
@@ -182,38 +184,37 @@ function CardapioContent() {
             <p className="text-gray-500">Nenhum produto nesta categoria</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="flex flex-col divide-y divide-white/5">
             {produtosCategoria.map(produto => {
               const noCarrinho = carrinho.find(i => i.id === produto.id)
               return (
-                <div key={produto.id} className="group bg-[#1a1a1a] border border-white/5 rounded-2xl overflow-hidden hover:border-amber-600/40 transition-all duration-300 hover:shadow-lg hover:shadow-amber-900/20 flex flex-col">
-                  <div className="relative overflow-hidden bg-[#111] h-44">
+                <div key={produto.id} className="flex items-center gap-4 py-4 group">
+                  <div className="relative w-24 h-24 flex-shrink-0 rounded-2xl overflow-hidden bg-[#1a1a1a]">
                     {produto.imagem_url ? (
                       <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center"><span className="text-5xl opacity-30">🎂</span></div>
+                      <div className="w-full h-full flex items-center justify-center"><span className="text-3xl opacity-30">🎂</span></div>
                     )}
                   </div>
-                  <div className="p-4 flex flex-col flex-1">
-                    <div className="flex-1">
-                      <h3 className="font-bold text-white text-base leading-snug mb-1">{produto.nome}</h3>
-                      {produto.descricao && <p className="text-gray-500 text-xs leading-relaxed line-clamp-2">{produto.descricao}</p>}
-                    </div>
-                    <div className="flex items-center justify-between mt-4">
-                      <span className="text-amber-400 font-black text-lg">R$ {produto.preco.toFixed(2)}</span>
-                      {noCarrinho ? (
-                        <div className="flex items-center gap-2 bg-[#111] rounded-xl px-1 py-1">
-                          <button onClick={() => removerDoCarrinho(produto.id)} className="w-8 h-8 rounded-lg bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 font-black text-lg flex items-center justify-center transition">−</button>
-                          <span className="text-white font-bold w-5 text-center">{noCarrinho.quantidade}</span>
-                          <button onClick={() => adicionarAoCarrinho(produto)} className="w-8 h-8 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-black text-lg flex items-center justify-center transition">+</button>
-                        </div>
-                      ) : (
-                        <button onClick={() => adicionarAoCarrinho(produto)} className="bg-amber-600 hover:bg-amber-700 active:scale-95 transition-all text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-1.5">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
-                          Adicionar
-                        </button>
-                      )}
-                    </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-white text-base leading-snug">{produto.nome}</h3>
+                    {produto.descricao && (
+                      <p className="text-gray-400 text-sm mt-0.5 line-clamp-2">{produto.descricao}</p>
+                    )}
+                    <span className="text-amber-400 font-black text-lg mt-1 block">R$ {produto.preco.toFixed(2)}</span>
+                  </div>
+                  <div className="flex-shrink-0">
+                    {noCarrinho ? (
+                      <div className="flex items-center gap-2 bg-[#1a1a1a] rounded-xl px-1 py-1">
+                        <button onClick={() => removerDoCarrinho(produto.id)} className="w-8 h-8 rounded-lg bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 font-black text-lg flex items-center justify-center transition">−</button>
+                        <span className="text-white font-bold w-5 text-center">{noCarrinho.quantidade}</span>
+                        <button onClick={() => adicionarAoCarrinho(produto)} className="w-8 h-8 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-black text-lg flex items-center justify-center transition">+</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => adicionarAoCarrinho(produto)} className="bg-amber-600 hover:bg-amber-700 active:scale-95 transition-all text-white w-10 h-10 rounded-xl font-black text-xl flex items-center justify-center">
+                        +
+                      </button>
+                    )}
                   </div>
                 </div>
               )
@@ -237,7 +238,13 @@ function CardapioContent() {
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
               {carrinho.map(item => (
                 <div key={item.id} className="flex items-center gap-3 bg-[#1a1a1a] rounded-xl p-3 border border-white/5">
-                  {item.imagem_url && <img src={item.imagem_url} alt={item.nome} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />}
+                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-[#111] flex-shrink-0">
+                    {item.imagem_url ? (
+                      <img src={item.imagem_url} alt={item.nome} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xl opacity-30">🎂</div>
+                    )}
+                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-white text-sm font-semibold truncate">{item.nome}</p>
                     <p className="text-amber-400 text-sm font-bold">R$ {(item.preco * item.quantidade).toFixed(2)}</p>
