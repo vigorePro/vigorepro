@@ -133,6 +133,8 @@ function DashboardContent() {
           </div>
           <button onClick={() => router.push('/cozinha?slug=' + slug)}
             className="bg-gray-800 text-white px-3 py-1.5 rounded-lg text-sm">Cozinha</button>
+          <button onClick={() => router.push('/dashboard/produtos')}
+            className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">Produtos</button>
           <button onClick={() => supabase.auth.signOut().then(() => router.push('/admin'))}
             className="text-gray-400 text-sm px-2 py-1 rounded hover:bg-gray-100">Sair</button>
         </div>
