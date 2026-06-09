@@ -24,7 +24,8 @@ export default function ProdutosPage() {
   async function carregarDados() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/admin'); return }
-    const { data: est } = await supabase.from('estabelecimentos').select('id').eq('user_id', user.id).single()
+    const slug = typeof window !== 'undefined' ? window.location.hostname.replace('.vigorepro.com.br', '') : ''
+    const { data: est } = await supabase.from('estabelecimentos').select('id').eq('slug', slug).single()
     if (!est) { setCarregando(false); return }
     setEstabelecimentoId(est.id)
     const { data: cats } = await supabase.from('categorias').select('*').eq('estabelecimento_id', est.id).order('ordem')
@@ -102,7 +103,7 @@ export default function ProdutosPage() {
                 {prodsCat.map(produto => (
                   <div key={produto.id} className="flex items-center gap-4 px-4 py-3">
                     <div className="w-14 h-14 rounded-xl overflow-hidden bg-[#1a1a1a] flex-shrink-0">
-                      {produto.imagem_url ? <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-2xl opacity-20">🎂</div>}
+                      {produto.imagem_url ? <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-2xl opacity-20">ð</div>}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-white truncate">{produto.nome}</p>
@@ -110,7 +111,7 @@ export default function ProdutosPage() {
                       <p className="text-amber-400 text-sm font-bold mt-0.5">R$ {produto.preco.toFixed(2)}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <button type="button" onClick={() => toggleDisponivel(produto)} className={`relative w-10 h-5 rounded-full transition-colors ${produto.disponivel ? 'bg-amber-600' : 'bg-white/10'}`} title={produto.disponivel ? 'Disponível' : 'Indisponível'}>
+                      <button type="button" onClick={() => toggleDisponivel(produto)} className={`relative w-10 h-5 rounded-full transition-colors ${produto.disponivel ? 'bg-amber-600' : 'bg-white/10'}`} title={produto.disponivel ? 'DisponÃ­vel' : 'IndisponÃ­vel'}>
                         <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${produto.disponivel ? 'translate-x-5' : 'translate-x-0.5'}`} />
                       </button>
                       <button onClick={() => abrirEdicao(produto)} className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center transition">
@@ -133,7 +134,7 @@ export default function ProdutosPage() {
               {produtos.filter(p => !p.categoria_id).map(produto => (
                 <div key={produto.id} className="flex items-center gap-4 px-4 py-3">
                   <div className="w-14 h-14 rounded-xl overflow-hidden bg-[#1a1a1a] flex-shrink-0">
-                    {produto.imagem_url ? <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-2xl opacity-20">🎂</div>}
+                    {produto.imagem_url ? <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-2xl opacity-20">ð</div>}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-white truncate">{produto.nome}</p>
@@ -157,7 +158,7 @@ export default function ProdutosPage() {
         )}
         {produtos.length === 0 && (
           <div className="text-center py-20">
-            <div className="text-5xl mb-4">🍽️</div>
+            <div className="text-5xl mb-4">ð½ï¸</div>
             <p className="text-gray-500 mb-4">Nenhum produto cadastrado ainda</p>
             <button onClick={abrirNovo} className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-xl font-bold">Adicionar primeiro produto</button>
           </div>
@@ -169,7 +170,7 @@ export default function ProdutosPage() {
           <div className="relative w-full max-w-lg bg-[#161616] rounded-2xl border border-white/10 shadow-2xl overflow-y-auto max-h-[90vh]">
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
               <h2 className="text-lg font-bold text-white">{editando ? 'Editar Produto' : 'Novo Produto'}</h2>
-              <button onClick={() => setModalAberto(false)} className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 flex items-center justify-center">✕</button>
+              <button onClick={() => setModalAberto(false)} className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 flex items-center justify-center">â</button>
             </div>
             <form onSubmit={salvar} className="px-6 py-5 space-y-4">
               <div>
@@ -177,12 +178,12 @@ export default function ProdutosPage() {
                 <input type="text" required value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-amber-500 transition" placeholder="Ex: Torta de frango" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">Descrição</label>
+                <label className="block text-xs font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">DescriÃ§Ã£o</label>
                 <textarea value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} rows={2} className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-amber-500 transition resize-none" placeholder="Descreva o produto..." />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">Preço (R$) *</label>
+                  <label className="block text-xs font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">PreÃ§o (R$) *</label>
                   <input type="number" required step="0.01" min="0" value={form.preco} onChange={e => setForm(f => ({ ...f, preco: e.target.value }))} className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-amber-500 transition" placeholder="0.00" />
                 </div>
                 <div>
@@ -200,8 +201,8 @@ export default function ProdutosPage() {
               </div>
               <div className="flex items-center justify-between bg-[#1a1a1a] rounded-xl px-4 py-3">
                 <div>
-                  <p className="text-white text-sm font-semibold">Disponível no cardápio</p>
-                  <p className="text-gray-500 text-xs">Visível para clientes</p>
+                  <p className="text-white text-sm font-semibold">DisponÃ­vel no cardÃ¡pio</p>
+                  <p className="text-gray-500 text-xs">VisÃ­vel para clientes</p>
                 </div>
                 <button type="button" onClick={() => setForm(f => ({ ...f, disponivel: !f.disponivel }))} className={`relative w-12 h-6 rounded-full transition-colors ${form.disponivel ? 'bg-amber-600' : 'bg-white/10'}`}>
                   <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.disponivel ? 'translate-x-7' : 'translate-x-1'}`} />
