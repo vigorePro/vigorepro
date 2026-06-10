@@ -113,7 +113,7 @@ function CozinhaContent() {
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold">🍳 Cozinha</h1>
+        <h1 className="text-xl font-bold"> Cozinha</h1>
         <div className="text-gray-400 text-sm">{agora.toLocaleTimeString('pt-BR')}</div>
       </div>
 
@@ -157,7 +157,7 @@ function CozinhaContent() {
                       )}
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-gray-400">
-                          {pedido.tipo_entrega === 'delivery' ? '🛵 Delivery' : '🏠 Retirada'}
+                          {pedido.tipo_entrega === 'delivery' ? ' Delivery' : ' Retirada'}
                         </span>
                         {config && (
                           <button
