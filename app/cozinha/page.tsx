@@ -3,6 +3,7 @@
 import { Suspense } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import type { Pedido } from '@/lib/supabase'
 
@@ -29,55 +30,57 @@ function CozinhaContent() {
 
   useEffect(() => {
     if (!slug) return
-    carregarPedidos()
-    const canal = supabase.channel('cozinha-' + slug)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, carregarPedidos)
+    buscarPedidos()
+    const canal = supabase
+      .channel('cozinha-' + slug)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, () => {
+        buscarPedidos()
+      })
       .subscribe()
     return () => { supabase.removeChannel(canal) }
   }, [slug])
 
+  async function buscarPedidos() {
+    const { data } = await supabase
+      .from('pedidos')
+      .select('*, itens:pedido_itens(*)')
+      .eq('restaurante_slug', slug)
+      .in('status', ['em_producao', 'confirmado', 'em_preparo', 'pronto'])
+      .order('created_at', { ascending: true })
+    if (data) {
+      const novosCount = data.length
+      if (pedidosAnterior.current >= 0 && novosCount > pedidosAnterior.current) {
+        tocarBeep()
+      }
+      pedidosAnterior.current = novosCount
+      setPedidos(data as Pedido[])
+    }
+  }
+
   function tocarBeep() {
     try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const ctx = new ((window as Record<string, unknown>).AudioContext as typeof AudioContext || (window as Record<string, unknown>).webkitAudioContext as typeof AudioContext)()
       const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.connect(gain)
-      gain.connect(ctx.destination)
+      osc.connect(ctx.destination)
       osc.frequency.value = 880
-      gain.gain.setValueAtTime(0.3, ctx.currentTime)
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4)
-      osc.start(ctx.currentTime)
-      osc.stop(ctx.currentTime + 0.4)
+      osc.start()
+      osc.stop(ctx.currentTime + 0.3)
     } catch {}
   }
 
-  async function carregarPedidos() {
-    const { data: est } = await supabase
-      .from('estabelecimentos').select('id').eq('slug', slug).single()
-    if (!est) return
-    const { data } = await supabase
-      .from('pedidos')
-      .select('*')
-      .eq('estabelecimento_id', est.id)
-      .not('status', 'in', '(entregue,cancelado)')
-      .order('criado_em', { ascending: true })
-    const novos = (data || []) as Pedido[]
-    if (pedidosAnterior.current >= 0 && novos.length > pedidosAnterior.current) {
-      tocarBeep()
-    }
-    pedidosAnterior.current = novos.length
-    setPedidos(novos)
-  }
-
   async function avancarStatus(pedido: Pedido) {
+    if (!(pedido.status in STATUS_CONFIG)) return
     const config = STATUS_CONFIG[pedido.status as StatusKey]
     if (!config) return
-    await supabase.from('pedidos').update({ status: config.proximo }).eq('id', pedido.id)
-    await carregarPedidos()
+    await supabase
+      .from('pedidos')
+      .update({ status: config.proximo })
+      .eq('id', pedido.id)
+    buscarPedidos()
   }
 
-  function tempoDecorrido(criado_em: string) {
-    const diff = Math.floor((agora.getTime() - new Date(criado_em).getTime()) / 1000)
+  function tempoDecorrido(createdAt: string) {
+    const diff = Math.floor((agora.getTime() - new Date(createdAt).getTime()) / 1000)
     const min = Math.floor(diff / 60)
     const seg = diff % 60
     return `${min}:${String(seg).padStart(2, '0')}`
@@ -87,25 +90,25 @@ function CozinhaContent() {
     {
       key: 'novos',
       titulo: 'Novos / Aguardando',
-      cor: 'text-red-400',
-      borda: 'border-red-500/30',
-      bg: 'bg-red-950/20',
-      itens: pedidos.filter(p => ['em_producao', 'confirmado'].includes(p.status)),
+      cor: '#EF4444',
+      borda: 'border-red-600',
+      bg: 'bg-red-950',
+      itens: pedidos.filter(p => p.status === 'em_producao' || p.status === 'confirmado'),
     },
     {
       key: 'preparo',
       titulo: 'Em Preparo',
-      cor: 'text-blue-400',
-      borda: 'border-blue-500/30',
-      bg: 'bg-blue-950/20',
+      cor: '#3B82F6',
+      borda: 'border-blue-600',
+      bg: 'bg-blue-950',
       itens: pedidos.filter(p => p.status === 'em_preparo'),
     },
     {
       key: 'prontos',
       titulo: 'Prontos',
-      cor: 'text-green-400',
-      borda: 'border-green-500/30',
-      bg: 'bg-green-950/20',
+      cor: '#10B981',
+      borda: 'border-green-600',
+      bg: 'bg-green-950',
       itens: pedidos.filter(p => p.status === 'pronto'),
     },
   ]
@@ -113,53 +116,59 @@ function CozinhaContent() {
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold"> Cozinha</h1>
+        <div className="flex items-center gap-3">
+          <Link
+            href={slug ? `/dashboard?slug=${slug}` : '/dashboard'}
+            className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors text-white text-sm font-bold"
+            title="Voltar ao Dashboard"
+          >
+            &larr;
+          </Link>
+          <h1 className="text-xl font-bold">Cozinha</h1>
+        </div>
         <div className="text-gray-400 text-sm">{agora.toLocaleTimeString('pt-BR')}</div>
       </div>
-
       <div className="grid grid-cols-3 gap-4">
         {colunas.map(coluna => (
-          <div key={coluna.key} className={['rounded-xl border', coluna.borda, coluna.bg, 'p-3'].join(' ')}>
-            <h2 className={coluna.cor + ' font-bold mb-3 text-sm flex items-center justify-between'}>
-              <span>{coluna.titulo}</span>
-              <span className="bg-gray-700 text-white text-xs rounded-full px-2 py-0.5">{coluna.itens.length}</span>
-            </h2>
-
-            {coluna.itens.length === 0 && (
-              <div className="text-gray-600 text-center text-sm py-8">Nenhum pedido</div>
-            )}
-
-            <div className="space-y-3">
-              {coluna.itens.map(pedido => {
-                const config = STATUS_CONFIG[pedido.status as StatusKey]
-                return (
-                  <div key={pedido.id} className="bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
-                    <div className="px-3 py-2 flex items-center justify-between" style={{ backgroundColor: (config?.cor || '#444') + '22' }}>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm" style={{ color: config?.cor }}>{'#' + pedido.numero_pedido}</span>
-                        <span className="text-white text-sm">{pedido.cliente_nome}</span>
+          <div
+            key={coluna.key}
+            className={`rounded-xl border ${coluna.borda} ${coluna.bg} bg-opacity-20 p-3 flex flex-col`}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-bold text-sm" style={{ color: coluna.cor }}>{coluna.titulo}</h2>
+              <span
+                className="text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center text-white"
+                style={{ backgroundColor: coluna.cor }}
+              >
+                {coluna.itens.length}
+              </span>
+            </div>
+            <div className="flex flex-col gap-3 flex-1">
+              {coluna.itens.length === 0 ? (
+                <div className="text-gray-500 text-sm text-center py-6">Nenhum pedido</div>
+              ) : (
+                coluna.itens.map(pedido => {
+                  const config = pedido.status in STATUS_CONFIG ? STATUS_CONFIG[pedido.status as StatusKey] : null
+                  return (
+                    <div key={pedido.id} className="bg-gray-800 rounded-lg p-3 border border-gray-700">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-sm">#{pedido.numero_pedido}</span>
+                        <span className="text-xs text-gray-400">{tempoDecorrido(pedido.created_at)}</span>
                       </div>
-                      <div className="text-right">
-                        <div className="text-xs" style={{ color: config?.cor }}>{config?.label}</div>
-                        <div className="text-xs text-gray-400">{tempoDecorrido(pedido.criado_em)}</div>
-                      </div>
-                    </div>
-                    <div className="px-3 py-2">
-                      <div className="space-y-1 mb-2">
+                      <div className="text-sm text-gray-300 mb-1">{pedido.cliente_nome}</div>
+                      {pedido.tipo_entrega && (
+                        <div className="text-xs text-gray-500 mb-2">{pedido.tipo_entrega}</div>
+                      )}
+                      <div className="text-xs text-gray-400 mb-2">
                         {pedido.itens.map((item, i) => (
-                          <div key={i} className="flex justify-between text-sm">
-                            <span className="text-white">{item.quantidade}x {item.nome}</span>
-                          </div>
+                          <div key={i}>{item.quantidade}x {item.nome}</div>
                         ))}
                       </div>
                       {pedido.observacoes && (
-                        <div className="text-xs bg-yellow-900 text-yellow-300 rounded p-2 mb-2">{pedido.observacoes}</div>
+                        <div className="text-xs text-yellow-400 mb-2 italic">Obs: {pedido.observacoes}</div>
                       )}
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-400">
-                          {pedido.tipo_entrega === 'delivery' ? ' Delivery' : ' Retirada'}
-                        </span>
-                        {config && (
+                      {config && pedido.status !== 'entregue' && (
+                        <div className="mt-2">
                           <button
                             onClick={() => avancarStatus(pedido)}
                             className="px-3 py-1 rounded-lg text-xs font-bold text-white"
@@ -167,12 +176,12 @@ function CozinhaContent() {
                           >
                             {config.btnLabel}
                           </button>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })
+              )}
             </div>
           </div>
         ))}
