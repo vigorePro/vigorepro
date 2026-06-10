@@ -160,10 +160,10 @@ function CardapioContent() {
       </header>
 
       <nav className="bg-[#161616] border-b border-white/5 sticky top-0 z-20 shadow-xl">
-        <div className="flex gap-0 overflow-x-auto max-w-2xl mx-auto px-2">
+        <div className="grid grid-cols-2 gap-0 max-w-2xl mx-auto px-2">
           {categorias.map(cat => (
             <button key={cat.id} onClick={() => setCategoriaAtiva(cat.id)}
-              className={`relative px-5 py-4 text-sm font-semibold whitespace-nowrap transition-colors flex-shrink-0 ${categoriaAtiva === cat.id ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}>
+              className={`relative w-full px-3 py-4 text-sm font-semibold text-center transition-colors ${categoriaAtiva === cat.id ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}>
               {cat.nome}
               {categoriaAtiva === cat.id && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-400 rounded-t" />
