@@ -188,7 +188,7 @@ function CardapioContent() {
             </button>
           </div>
           <div className="relative flex justify-center">
-            <img src="/assets/img/hero/hero-badge.png" alt="" className="absolute -top-2 left-2 md:left-6 w-24 md:w-32 z-20 pointer-events-none select-none" />
+            
             <img src="/assets/img/hero/hero-food.png" alt="Destaque" className="w-64 md:w-[26rem] drop-shadow-2xl" />
           </div>
         </div>
