@@ -176,11 +176,23 @@ function CardapioContent() {
       <main className="max-w-2xl mx-auto px-4 py-8 pb-36">
         {(() => {
           const catAtiva = categorias.find(c => c.id === categoriaAtiva)
-          return catAtiva?.banner_url ? (
+          const hasDesktop = catAtiva?.banner_desktop_url
+          const hasMobile = catAtiva?.banner_mobile_url
+          const hasBanner = hasDesktop || hasMobile || catAtiva?.banner_url
+          if (!hasBanner) return null
+          return (
             <div className="mb-4 rounded-xl overflow-hidden">
-              <img src={catAtiva.banner_url} alt={catAtiva.nome + ' banner'} className="w-full h-40 object-cover" />
+              {hasDesktop && (
+                <img src={catAtiva.banner_desktop_url!} alt={catAtiva.nome + ' banner'} className="hidden md:block w-full h-40 object-cover" />
+              )}
+              {hasMobile && (
+                <img src={catAtiva.banner_mobile_url!} alt={catAtiva.nome + ' banner'} className={'w-full h-40 object-cover' + (hasDesktop ? ' md:hidden' : '')} />
+              )}
+              {!hasDesktop && !hasMobile && catAtiva?.banner_url && (
+                <img src={catAtiva.banner_url} alt={catAtiva.nome + ' banner'} className="w-full h-40 object-cover" />
+              )}
             </div>
-          ) : null
+          )
         })()}
         <div className="mb-6">
           <h2 className="text-xl font-bold text-white">{categorias.find(c => c.id === categoriaAtiva)?.nome}</h2>
