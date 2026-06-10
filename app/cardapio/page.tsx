@@ -164,8 +164,8 @@ function CardapioContent() {
         style={{ backgroundImage: "url('/assets/img/hero/hero-bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center' }}
       >
         <div className="absolute inset-0 bg-[#eb0029]/30" />
-        <img src="/assets/img/hero/hero-leaf.png" alt="" className="hidden sm:block absolute left-2 top-10 w-20 md:w-28 opacity-95 pointer-events-none select-none" />
-        <img src="/assets/img/hero/hero-pepper.png" alt="" className="hidden sm:block absolute right-3 bottom-6 w-20 md:w-28 opacity-95 pointer-events-none select-none" />
+        
+        
 
         <div className="relative z-10 max-w-6xl mx-auto px-5 py-14 md:py-20 grid md:grid-cols-2 gap-8 items-center">
           <div className="text-center md:text-left">
