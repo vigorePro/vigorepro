@@ -189,7 +189,7 @@ function CardapioContent() {
           </div>
           <div className="relative flex justify-center">
             
-            <img src="/assets/img/hero/hero-food.png" alt="Destaque" className="w-64 md:w-[26rem] drop-shadow-2xl" />
+            <img src="/assets/img/hero/magnific_deixe-ela-com-um-avental-_aQcazdzfSh.png" alt="Destaque" className="w-64 md:w-[26rem] drop-shadow-2xl" />
           </div>
         </div>
       </header>
