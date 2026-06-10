@@ -7,12 +7,16 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import type { Categoria } from '@/lib/supabase'
 
+type UploadType = 'desktop' | 'mobile'
+
 function CategoriasContent() {
   const searchParams = useSearchParams()
   const slug = searchParams.get('slug') || ''
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [editando, setEditando] = useState<string | null>(null)
-  const [bannerUrl, setBannerUrl] = useState('')
+  const [desktopUrl, setDesktopUrl] = useState('')
+  const [mobileUrl, setMobileUrl] = useState('')
+  const [uploading, setUploading] = useState<UploadType | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [mensagem, setMensagem] = useState('')
 
@@ -38,27 +42,55 @@ function CategoriasContent() {
 
   function iniciarEdicao(cat: Categoria) {
     setEditando(cat.id)
-    setBannerUrl(cat.banner_url || '')
+    setDesktopUrl(cat.banner_desktop_url || cat.banner_url || '')
+    setMobileUrl(cat.banner_mobile_url || cat.banner_url || '')
     setMensagem('')
   }
 
   function cancelarEdicao() {
     setEditando(null)
-    setBannerUrl('')
+    setDesktopUrl('')
+    setMobileUrl('')
     setMensagem('')
   }
 
-  async function salvarBanner(catId: string) {
+  async function uploadImagem(file: File, tipo: UploadType, catId: string) {
+    setUploading(tipo)
+    setMensagem('')
+    const ext = file.name.split('.').pop() || 'jpg'
+    const path = slug + '/' + catId + '-' + tipo + '-' + Date.now() + '.' + ext
+    const { data, error } = await supabase.storage
+      .from('banners')
+      .upload(path, file, { upsert: true, contentType: file.type })
+    if (error) {
+      setMensagem('Erro no upload: ' + error.message)
+      setUploading(null)
+      return
+    }
+    const { data: urlData } = supabase.storage.from('banners').getPublicUrl(data.path)
+    if (tipo === 'desktop') {
+      setDesktopUrl(urlData.publicUrl)
+    } else {
+      setMobileUrl(urlData.publicUrl)
+    }
+    setUploading(null)
+  }
+
+  async function salvarBanners(catId: string) {
     setSalvando(true)
     setMensagem('')
     const { error } = await supabase
       .from('categorias')
-      .update({ banner_url: bannerUrl || null })
+      .update({
+        banner_desktop_url: desktopUrl || null,
+        banner_mobile_url: mobileUrl || null,
+        banner_url: desktopUrl || mobileUrl || null,
+      })
       .eq('id', catId)
     if (error) {
       setMensagem('Erro ao salvar: ' + error.message)
     } else {
-      setMensagem('Banner salvo!')
+      setMensagem('Banners salvos com sucesso!')
       setEditando(null)
       buscarCategorias()
     }
@@ -66,7 +98,7 @@ function CategoriasContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4 max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gray-900 text-white p-4 max-w-3xl mx-auto">
       <div className="flex items-center gap-3 mb-8">
         <Link
           href={slug ? '/dashboard?slug=' + slug : '/dashboard'}
@@ -93,46 +125,89 @@ function CategoriasContent() {
                   onClick={() => iniciarEdicao(cat)}
                   className="px-3 py-1 bg-yellow-500 hover:bg-yellow-600 text-black text-sm font-bold rounded-lg transition-colors"
                 >
-                  Editar Banner
+                  Editar Banners
                 </button>
               )}
             </div>
 
-            {cat.banner_url && editando !== cat.id && (
-              <div className="mb-3 rounded-lg overflow-hidden">
-                <img src={cat.banner_url} alt={'Banner ' + cat.nome} className="w-full h-32 object-cover" />
+            {editando !== cat.id && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Desktop (1200x300px)</p>
+                  {cat.banner_desktop_url ? (
+                    <img src={cat.banner_desktop_url} alt="Desktop" className="w-full h-20 object-cover rounded-lg" />
+                  ) : (
+                    <div className="w-full h-20 bg-gray-700 rounded-lg flex items-center justify-center text-gray-500 text-xs">Sem banner desktop</div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Mobile (600x300px)</p>
+                  {cat.banner_mobile_url ? (
+                    <img src={cat.banner_mobile_url} alt="Mobile" className="w-full h-20 object-cover rounded-lg" />
+                  ) : (
+                    <div className="w-full h-20 bg-gray-700 rounded-lg flex items-center justify-center text-gray-500 text-xs">Sem banner mobile</div>
+                  )}
+                </div>
               </div>
             )}
 
-            {!cat.banner_url && editando !== cat.id && (
-              <p className="text-gray-500 text-sm">Sem banner</p>
-            )}
-
             {editando === cat.id && (
-              <div className="flex flex-col gap-3">
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">URL da imagem do banner</label>
-                  <input
-                    type="text"
-                    value={bannerUrl}
-                    onChange={e => setBannerUrl(e.target.value)}
-                    placeholder="https://exemplo.com/imagem.jpg"
-                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Cole a URL de uma imagem. Deixe vazio para remover o banner.</p>
-                </div>
-                {bannerUrl && (
-                  <div className="rounded-lg overflow-hidden">
-                    <img src={bannerUrl} alt="Preview" className="w-full h-32 object-cover" onError={() => setMensagem('URL de imagem invalida')} />
+              <div className="flex flex-col gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="bg-gray-750 rounded-lg p-3 border border-gray-600">
+                    <p className="text-sm font-semibold text-yellow-400 mb-1">Desktop</p>
+                    <p className="text-xs text-gray-400 mb-2">Tamanho recomendado: 1200 x 300 px</p>
+                    <label className="block w-full cursor-pointer">
+                      <div className={'w-full py-3 px-4 rounded-lg border-2 border-dashed text-center text-sm transition-colors ' + (uploading === 'desktop' ? 'border-yellow-500 text-yellow-400' : 'border-gray-500 text-gray-400 hover:border-yellow-500 hover:text-yellow-400')}>
+                        {uploading === 'desktop' ? 'Enviando...' : 'Clique para enviar imagem'}
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        disabled={uploading !== null}
+                        onChange={e => { if (e.target.files?.[0]) uploadImagem(e.target.files[0], 'desktop', cat.id) }}
+                      />
+                    </label>
+                    {desktopUrl && (
+                      <div className="mt-2">
+                        <img src={desktopUrl} alt="Preview desktop" className="w-full h-24 object-cover rounded-lg" />
+                        <button onClick={() => setDesktopUrl('')} className="mt-1 text-xs text-red-400 hover:text-red-300">Remover</button>
+                      </div>
+                    )}
                   </div>
-                )}
+
+                  <div className="bg-gray-750 rounded-lg p-3 border border-gray-600">
+                    <p className="text-sm font-semibold text-blue-400 mb-1">Mobile</p>
+                    <p className="text-xs text-gray-400 mb-2">Tamanho recomendado: 600 x 300 px</p>
+                    <label className="block w-full cursor-pointer">
+                      <div className={'w-full py-3 px-4 rounded-lg border-2 border-dashed text-center text-sm transition-colors ' + (uploading === 'mobile' ? 'border-blue-500 text-blue-400' : 'border-gray-500 text-gray-400 hover:border-blue-500 hover:text-blue-400')}>
+                        {uploading === 'mobile' ? 'Enviando...' : 'Clique para enviar imagem'}
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        disabled={uploading !== null}
+                        onChange={e => { if (e.target.files?.[0]) uploadImagem(e.target.files[0], 'mobile', cat.id) }}
+                      />
+                    </label>
+                    {mobileUrl && (
+                      <div className="mt-2">
+                        <img src={mobileUrl} alt="Preview mobile" className="w-full h-24 object-cover rounded-lg" />
+                        <button onClick={() => setMobileUrl('')} className="mt-1 text-xs text-red-400 hover:text-red-300">Remover</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <div className="flex gap-2">
                   <button
-                    onClick={() => salvarBanner(cat.id)}
-                    disabled={salvando}
+                    onClick={() => salvarBanners(cat.id)}
+                    disabled={salvando || uploading !== null}
                     className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-50"
                   >
-                    {salvando ? 'Salvando...' : 'Salvar'}
+                    {salvando ? 'Salvando...' : 'Salvar Banners'}
                   </button>
                   <button
                     onClick={cancelarEdicao}
