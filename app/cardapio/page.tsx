@@ -53,7 +53,7 @@ function CardapioContent() {
           .from('produtos')
           .select('*')
           .eq('estabelecimento_id', est.id)
-          .eq('ativo', true)
+          .eq('disponivel', true)
           .order('ordem')
         setProdutos(prods || [])
         setCarregando(false)
@@ -87,7 +87,7 @@ function CardapioContent() {
         const texto = carrinho.map(i => `${i.quantidade}x ${i.nome} - R$ ${(i.preco * i.quantidade).toFixed(2)}`).join('\n')
         const total = carrinho.reduce((s, i) => s + i.preco * i.quantidade, 0)
         const msg = `Olá! Quero fazer um pedido:%0A%0A${encodeURIComponent(texto)}%0A%0ATotal: R$ ${total.toFixed(2)}`
-        const tel = estabelecimento?.whatsapp?.replace(/\D/g, '') || ''
+        const tel = estabelecimento?.telefone?.replace(/\D/g, '') || ''
         window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank')
   }
 
@@ -124,13 +124,9 @@ function CardapioContent() {
                 <nav className="bg-white shadow-sm sticky top-0 z-40">
                         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
                                   <div className="flex items-center gap-3">
-                                    {estabelecimento?.logo_url ? (
-                          <img src={estabelecimento.logo_url} alt={estabelecimento.nome} className="h-10 w-10 rounded-full object-cover" />
-                        ) : (
-                          <div className="h-10 w-10 rounded-full bg-[#eb0029] flex items-center justify-center text-white font-bold font-oswald text-lg">
+                                    <div className="h-10 w-10 rounded-full bg-[#eb0029] flex items-center justify-center text-white font-bold font-oswald text-lg">
                             {estabelecimento?.nome?.charAt(0) || 'R'}
                           </div>div>
-                                              )}
                                               <span className="font-oswald font-bold text-xl text-[#04000b] uppercase tracking-wide">
                                                 {estabelecimento?.nome || 'Restaurante'}
                                               </span>span>
@@ -194,7 +190,7 @@ function CardapioContent() {
                                                             <div className="font-oswald text-3xl font-bold">{produtos.length}</div>div>
                                                             <div className="font-jost text-xs text-white/80">Itens</div>div>
                                               </div>div>
-                                    {estabelecimento?.status_aberto && (
+                                    {estabelecimento?.ativo && (
                           <div className="bg-green-500/80 backdrop-blur-sm rounded-2xl p-4 text-white text-center">
                                           <div className="font-oswald text-lg font-bold">Aberto</div>div>
                                           <div className="font-jost text-xs text-white/80">Agora</div>div>
