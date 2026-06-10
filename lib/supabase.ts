@@ -21,6 +21,8 @@ export type Categoria = {
   nome: string
   ordem: number
   banner_url: string | null
+  banner_desktop_url: string | null
+  banner_mobile_url: string | null
 }
 
 export type Produto = {
