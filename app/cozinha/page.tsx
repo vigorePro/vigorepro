@@ -146,7 +146,7 @@ function CozinhaContent() {
                     </div>
                     <div className="px-3 py-2">
                       <div className="space-y-1 mb-2">
-                        {(pedido.items as {quantidade: number, nome: string}[]).map((item, i) => (
+                        {pedido.itens.map((item, i) => (
                           <div key={i} className="flex justify-between text-sm">
                             <span className="text-white">{item.quantidade}x {item.nome}</span>
                           </div>
