@@ -86,7 +86,7 @@ function CozinhaContent() {
       cor: 'text-red-400',
       borda: 'border-red-500/30',
       bg: 'bg-red-950/20',
-      pedidos: pedidos.filter(p => ['em_producao', 'confirmado'].includes(p.status)),
+      itens: pedidos.filter(p => ['em_producao', 'confirmado'].includes(p.status)),
     },
     {
       key: 'preparo',
@@ -94,7 +94,7 @@ function CozinhaContent() {
       cor: 'text-blue-400',
       borda: 'border-blue-500/30',
       bg: 'bg-blue-950/20',
-      pedidos: pedidos.filter(p => p.status === 'em_preparo'),
+      itens: pedidos.filter(p => p.status === 'em_preparo'),
     },
     {
       key: 'prontos',
@@ -102,7 +102,7 @@ function CozinhaContent() {
       cor: 'text-green-400',
       borda: 'border-green-500/30',
       bg: 'bg-green-950/20',
-      pedidos: pedidos.filter(p => p.status === 'pronto'),
+      itens: pedidos.filter(p => p.status === 'pronto'),
     },
   ]
 
@@ -118,15 +118,15 @@ function CozinhaContent() {
           <div key={coluna.key} className={'rounded-xl border ' + coluna.borda + ' ' + coluna.bg + ' p-3'}>
             <h2 className={coluna.cor + ' font-bold mb-3 text-sm flex items-center justify-between'}>
               <span>{coluna.titulo}</span>
-              <span className="bg-gray-700 text-white text-xs rounded-full px-2 py-0.5">{coluna.pedidos.length}</span>
+              <span className="bg-gray-700 text-white text-xs rounded-full px-2 py-0.5">{coluna.itens.length}</span>
             </h2>
 
-            {coluna.pedidos.length === 0 && (
+            {coluna.itens.length === 0 && (
               <div className="text-gray-600 text-center text-sm py-8">Nenhum pedido</div>
             )}
 
             <div className="space-y-3">
-              {coluna.pedidos.map(pedido => {
+              {coluna.itens.map(pedido => {
                 const config = STATUS_CONFIG[pedido.status as StatusKey]
                 return (
                   <div key={pedido.id} className="bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
