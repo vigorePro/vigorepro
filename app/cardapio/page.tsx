@@ -174,6 +174,14 @@ function CardapioContent() {
       </nav>
 
       <main className="max-w-2xl mx-auto px-4 py-8 pb-36">
+        {(() => {
+          const catAtiva = categorias.find(c => c.id === categoriaAtiva)
+          return catAtiva?.banner_url ? (
+            <div className="mb-4 rounded-xl overflow-hidden">
+              <img src={catAtiva.banner_url} alt={catAtiva.nome + ' banner'} className="w-full h-40 object-cover" />
+            </div>
+          ) : null
+        })()}
         <div className="mb-6">
           <h2 className="text-xl font-bold text-white">{categorias.find(c => c.id === categoriaAtiva)?.nome}</h2>
           <p className="text-gray-500 text-sm mt-0.5">{produtosCategoria.length} {produtosCategoria.length === 1 ? 'item disponível' : 'itens disponíveis'}</p>
