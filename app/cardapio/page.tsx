@@ -99,12 +99,12 @@ function CardapioContent() {
 
   if (naoEncontrado) {
     return (
-      <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[#faf1df] flex items-center justify-center p-6">
         <div className="text-center max-w-sm">
           <div className="text-7xl mb-6">🍽️</div>
-          <h1 className="text-2xl font-bold text-white mb-2">Restaurante não encontrado</h1>
-          <p className="text-gray-400 mb-2">O estabelecimento <strong className="text-amber-400">{slug}</strong> não existe ou não está ativo.</p>
-          <p className="text-sm text-gray-600">Verifique o link e tente novamente.</p>
+          <h1 className="font-oswald uppercase text-3xl font-bold text-[#04000b] mb-2 tracking-tight">Restaurante não encontrado</h1>
+          <p className="text-[#666] mb-2">O estabelecimento <strong className="text-[#eb0029]">{slug}</strong> não existe ou não está ativo.</p>
+          <p className="text-sm text-[#999]">Verifique o link e tente novamente.</p>
         </div>
       </div>
     )
@@ -112,10 +112,10 @@ function CardapioContent() {
 
   if (carregando) {
     return (
-      <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center">
+      <div className="min-h-screen bg-[#faf1df] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-400 text-sm tracking-widest uppercase">Carregando cardápio...</p>
+          <div className="w-12 h-12 border-4 border-[#eb0029] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="font-script text-[#eb0029] text-xl">Carregando cardápio...</p>
         </div>
       </div>
     )
@@ -123,56 +123,68 @@ function CardapioContent() {
 
   if (!estabelecimento) {
     return (
-      <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center">
-        <p className="text-gray-500">Estabelecimento não encontrado</p>
+      <div className="min-h-screen bg-[#faf1df] flex items-center justify-center">
+        <p className="text-[#666]">Estabelecimento não encontrado</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] text-white">
-      <header className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a1a] via-[#111] to-[#0d0d0d]" />
-        <div className="absolute top-0 right-0 w-64 h-64 bg-amber-600 opacity-10 rounded-full -translate-y-1/2 translate-x-1/2" />
-        <div className="relative z-10 px-4 pt-8 pb-6 max-w-2xl mx-auto flex items-center justify-between">
+    <div className="min-h-screen bg-[#faf1df] text-[#04000b] font-jost">
+      {/* HEADER */}
+      <header className="relative overflow-hidden bg-white border-b border-[#ebe9e6]">
+        <div className="absolute top-0 right-0 w-72 h-72 bg-gradient-to-br from-[#eb0029] to-[#ffb800] opacity-[0.08] rounded-full -translate-y-1/3 translate-x-1/3" />
+        <div className="absolute bottom-0 left-0 w-40 h-40 bg-[#f76e2a] opacity-[0.06] rounded-full translate-y-1/2 -translate-x-1/4" />
+        <div className="relative z-10 px-4 pt-8 pb-7 max-w-2xl mx-auto flex items-start justify-between gap-4">
           <div>
-            <p className="text-amber-400 text-xs tracking-[0.2em] uppercase font-medium mb-1">Cardápio Digital</p>
-            <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white leading-tight">{estabelecimento.nome}</h1>
+            <p className="font-script text-[#eb0029] text-2xl leading-none mb-1">Cardápio Digital</p>
+            <h1 className="font-oswald uppercase text-3xl md:text-5xl font-bold tracking-tight text-[#04000b] leading-[1.05]">{estabelecimento.nome}</h1>
             {estabelecimento.endereco && (
-              <p className="text-gray-400 text-sm mt-1 flex items-center gap-1">
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
+              <p className="text-[#666] text-sm mt-2 flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 text-[#eb0029]" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
                 {estabelecimento.endereco}
               </p>
             )}
-            <span className="inline-flex items-center gap-1 mt-2 bg-green-900/40 border border-green-700/50 text-green-400 text-xs px-2.5 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+            <span className="inline-flex items-center gap-1.5 mt-3 bg-[#198754]/10 border border-[#198754]/30 text-[#198754] text-xs font-medium px-3 py-1 rounded-full">
+              <span className="w-1.5 h-1.5 bg-[#198754] rounded-full animate-pulse" />
               Aberto agora · Pagamento na entrega
             </span>
           </div>
           {totalItens > 0 && (
-            <button onClick={() => setCartAberto(true)} className="hidden md:flex items-center gap-3 bg-amber-600 hover:bg-amber-700 transition px-5 py-3 rounded-2xl font-bold">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-1.4 7h12.8M10 21a1 1 0 100-2 1 1 0 000 2zm8 0a1 1 0 100-2 1 1 0 000 2z" /></svg>
-              <span>{totalItens} {totalItens === 1 ? 'item' : 'itens'}</span>
-              <span className="bg-amber-800/60 px-2 py-0.5 rounded-lg text-sm">R$ {totalValor.toFixed(2)}</span>
+            <button
+              onClick={() => setCartAberto(true)}
+              className="hidden sm:flex flex-shrink-0 items-center gap-2 bg-[#eb0029] hover:bg-[#f76e2a] transition-colors text-white px-4 py-2.5 rounded-full font-oswald uppercase text-sm tracking-wide font-medium shadow-lg shadow-[#eb0029]/20"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-1.4 7h12.8M10 21a1 1 0 100-2 1 1 0 000 2zm8 0a1 1 0 100-2 1 1 0 000 2z" /></svg>
+              {totalItens}
             </button>
           )}
         </div>
       </header>
 
-      <nav className="bg-[#161616] border-b border-white/5 sticky top-0 z-20 shadow-xl">
-        <div className="grid grid-cols-2 gap-0 max-w-2xl mx-auto px-2">
-          {categorias.map(cat => (
-            <button key={cat.id} onClick={() => setCategoriaAtiva(cat.id)}
-              className={`relative w-full px-3 py-4 text-sm font-semibold text-center transition-colors ${categoriaAtiva === cat.id ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}>
-              {cat.nome}
-              {categoriaAtiva === cat.id && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-400 rounded-t" />
-              )}
-            </button>
-          ))}
+      {/* CATEGORIAS */}
+      <nav className="sticky top-0 z-30 bg-[#faf1df]/95 backdrop-blur border-b border-[#ebe9e6]">
+        <div className="max-w-2xl mx-auto px-4">
+          <div className="flex gap-2 overflow-x-auto py-3 no-scrollbar">
+            {categorias.map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => setCategoriaAtiva(cat.id)}
+                className={
+                  'flex-shrink-0 px-5 py-2 rounded-full font-oswald uppercase text-sm tracking-wide transition-all ' +
+                  (categoriaAtiva === cat.id
+                    ? 'bg-[#eb0029] text-white shadow-md shadow-[#eb0029]/20'
+                    : 'bg-white text-[#04000b] border border-[#ebe9e6] hover:border-[#eb0029] hover:text-[#eb0029]')
+                }
+              >
+                {cat.nome}
+              </button>
+            ))}
+          </div>
         </div>
       </nav>
 
+      {/* LISTA DE PRODUTOS */}
       <main className="max-w-2xl mx-auto px-4 py-8 pb-36">
         {(() => {
           const catAtiva = categorias.find(c => c.id === categoriaAtiva)
@@ -181,35 +193,42 @@ function CardapioContent() {
           const hasBanner = hasDesktop || hasMobile || catAtiva?.banner_url
           if (!hasBanner) return null
           return (
-            <div className="mb-4 rounded-xl overflow-hidden">
+            <div className="mb-6 rounded-2xl overflow-hidden shadow-sm">
               {hasDesktop && (
-                <img src={catAtiva.banner_desktop_url!} alt={catAtiva.nome + ' banner'} className="hidden md:block w-full h-40 object-cover" />
+                <img src={catAtiva.banner_desktop_url!} alt={catAtiva.nome + ' banner'} className="hidden md:block w-full h-44 object-cover" />
               )}
               {hasMobile && (
-                <img src={catAtiva.banner_mobile_url!} alt={catAtiva.nome + ' banner'} className={'w-full h-40 object-cover' + (hasDesktop ? ' md:hidden' : '')} />
+                <img src={catAtiva.banner_mobile_url!} alt={catAtiva.nome + ' banner'} className={'w-full h-44 object-cover' + (hasDesktop ? ' md:hidden' : '')} />
               )}
               {!hasDesktop && !hasMobile && catAtiva?.banner_url && (
-                <img src={catAtiva.banner_url} alt={catAtiva.nome + ' banner'} className="w-full h-40 object-cover" />
+                <img src={catAtiva.banner_url} alt={catAtiva.nome + ' banner'} className="w-full h-44 object-cover" />
               )}
             </div>
           )
         })()}
-        <div className="mb-6">
-          <h2 className="text-xl font-bold text-white">{categorias.find(c => c.id === categoriaAtiva)?.nome}</h2>
-          <p className="text-gray-500 text-sm mt-0.5">{produtosCategoria.length} {produtosCategoria.length === 1 ? 'item disponível' : 'itens disponíveis'}</p>
+
+        <div className="mb-7 text-center">
+          <p className="font-script text-[#eb0029] text-2xl leading-none">Nosso menu</p>
+          <h2 className="font-oswald uppercase text-3xl font-bold text-[#04000b] tracking-tight">{categorias.find(c => c.id === categoriaAtiva)?.nome}</h2>
+          <div className="flex items-center justify-center gap-2 mt-2">
+            <span className="h-px w-8 bg-[#eb0029]/40" />
+            <span className="text-[#666] text-sm">{produtosCategoria.length} {produtosCategoria.length === 1 ? 'item disponível' : 'itens disponíveis'}</span>
+            <span className="h-px w-8 bg-[#eb0029]/40" />
+          </div>
         </div>
+
         {produtosCategoria.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-5xl mb-4">🍽️</div>
-            <p className="text-gray-500">Nenhum produto nesta categoria</p>
+            <p className="text-[#666]">Nenhum produto nesta categoria</p>
           </div>
         ) : (
-          <div className="flex flex-col divide-y divide-white/5">
+          <div className="grid grid-cols-1 gap-4">
             {produtosCategoria.map(produto => {
               const noCarrinho = carrinho.find(i => i.id === produto.id)
               return (
-                <div key={produto.id} className="flex items-center gap-4 py-4 group">
-                  <div className="relative w-24 h-24 flex-shrink-0 rounded-2xl overflow-hidden bg-[#1a1a1a]">
+                <div key={produto.id} className="flex items-center gap-4 bg-white rounded-2xl p-3 border border-[#ebe9e6] shadow-sm hover:shadow-md transition-shadow group">
+                  <div className="relative w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden bg-[#faf1df]">
                     {produto.imagem_url ? (
                       <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     ) : (
@@ -217,21 +236,24 @@ function CardapioContent() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-white text-base leading-snug">{produto.nome}</h3>
+                    <h3 className="font-oswald uppercase text-[#04000b] text-lg leading-snug tracking-tight">{produto.nome}</h3>
                     {produto.descricao && (
-                      <p className="text-gray-400 text-sm mt-0.5 line-clamp-2">{produto.descricao}</p>
+                      <p className="text-[#666] text-sm mt-0.5 line-clamp-2">{produto.descricao}</p>
                     )}
-                    <span className="text-amber-400 font-black text-lg mt-1 block">R$ {produto.preco.toFixed(2)}</span>
+                    <div className="flex items-baseline gap-1 mt-1.5">
+                      <span className="text-[#999] text-[10px] uppercase tracking-widest font-medium">Preço</span>
+                      <span className="text-[#eb0029] font-oswald font-bold text-xl">R$ {produto.preco.toFixed(2)}</span>
+                    </div>
                   </div>
                   <div className="flex-shrink-0">
                     {noCarrinho ? (
-                      <div className="flex items-center gap-2 bg-[#1a1a1a] rounded-xl px-1 py-1">
-                        <button onClick={() => removerDoCarrinho(produto.id)} className="w-8 h-8 rounded-lg bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 font-black text-lg flex items-center justify-center transition">−</button>
-                        <span className="text-white font-bold w-5 text-center">{noCarrinho.quantidade}</span>
-                        <button onClick={() => adicionarAoCarrinho(produto)} className="w-8 h-8 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-black text-lg flex items-center justify-center transition">+</button>
+                      <div className="flex items-center gap-2 bg-[#faf1df] rounded-full px-1 py-1">
+                        <button onClick={() => removerDoCarrinho(produto.id)} className="w-8 h-8 rounded-full bg-white border border-[#ebe9e6] hover:border-[#eb0029] text-[#eb0029] font-bold text-lg flex items-center justify-center transition">−</button>
+                        <span className="text-[#04000b] font-bold w-5 text-center">{noCarrinho.quantidade}</span>
+                        <button onClick={() => adicionarAoCarrinho(produto)} className="w-8 h-8 rounded-full bg-[#eb0029] hover:bg-[#f76e2a] text-white font-bold text-lg flex items-center justify-center transition">+</button>
                       </div>
                     ) : (
-                      <button onClick={() => adicionarAoCarrinho(produto)} className="bg-amber-600 hover:bg-amber-700 active:scale-95 transition-all text-white w-10 h-10 rounded-xl font-black text-xl flex items-center justify-center">
+                      <button onClick={() => adicionarAoCarrinho(produto)} className="bg-[#eb0029] hover:bg-[#f76e2a] active:scale-95 transition-all text-white w-11 h-11 rounded-full font-bold text-2xl flex items-center justify-center shadow-md shadow-[#eb0029]/20">
                         +
                       </button>
                     )}
@@ -243,22 +265,23 @@ function CardapioContent() {
         )}
       </main>
 
+      {/* CARRINHO LATERAL */}
       {cartAberto && (
         <div className="fixed inset-0 z-50 flex">
-          <div className="flex-1 bg-black/70 backdrop-blur-sm" onClick={() => setCartAberto(false)} />
-          <div className="w-full max-w-sm bg-[#161616] border-l border-white/10 flex flex-col h-full animate-slide-in-right">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-1.4 7h12.8M10 21a1 1 0 100-2 1 1 0 000 2zm8 0a1 1 0 100-2 1 1 0 000 2z" /></svg>
+          <div className="flex-1 bg-black/50 backdrop-blur-sm" onClick={() => setCartAberto(false)} />
+          <div className="w-full max-w-sm bg-white border-l border-[#ebe9e6] flex flex-col h-full animate-slide-in-right">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#ebe9e6]">
+              <h2 className="font-oswald uppercase text-lg font-bold text-[#04000b] flex items-center gap-2 tracking-tight">
+                <svg className="w-5 h-5 text-[#eb0029]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-1.4 7h12.8M10 21a1 1 0 100-2 1 1 0 000 2zm8 0a1 1 0 100-2 1 1 0 000 2z" /></svg>
                 Seu Pedido
-                <span className="bg-amber-600 text-white text-xs px-2 py-0.5 rounded-full">{totalItens}</span>
+                <span className="bg-[#eb0029] text-white text-xs px-2 py-0.5 rounded-full">{totalItens}</span>
               </h2>
-              <button onClick={() => setCartAberto(false)} className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 flex items-center justify-center transition">✕</button>
+              <button onClick={() => setCartAberto(false)} className="w-8 h-8 rounded-full bg-[#faf1df] hover:bg-[#ebe9e6] text-[#666] flex items-center justify-center transition">✕</button>
             </div>
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
               {carrinho.map(item => (
-                <div key={item.id} className="flex items-center gap-3 bg-[#1a1a1a] rounded-xl p-3 border border-white/5">
-                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-[#111] flex-shrink-0">
+                <div key={item.id} className="flex items-center gap-3 bg-[#faf1df] rounded-xl p-3 border border-[#ebe9e6]">
+                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-white flex-shrink-0">
                     {item.imagem_url ? (
                       <img src={item.imagem_url} alt={item.nome} className="w-full h-full object-cover" />
                     ) : (
@@ -266,49 +289,51 @@ function CardapioContent() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-semibold truncate">{item.nome}</p>
-                    <p className="text-amber-400 text-sm font-bold">R$ {(item.preco * item.quantidade).toFixed(2)}</p>
+                    <p className="font-oswald uppercase text-[#04000b] text-sm tracking-tight truncate">{item.nome}</p>
+                    <p className="text-[#eb0029] text-sm font-bold">R$ {(item.preco * item.quantidade).toFixed(2)}</p>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <button onClick={() => removerDoCarrinho(item.id)} className="w-7 h-7 rounded-lg bg-white/5 hover:bg-red-900/30 text-gray-400 hover:text-red-400 flex items-center justify-center transition text-lg font-bold">−</button>
-                    <span className="text-white font-bold w-4 text-center text-sm">{item.quantidade}</span>
-                    <button onClick={() => adicionarAoCarrinho(item)} className="w-7 h-7 rounded-lg bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 flex items-center justify-center transition text-lg font-bold">+</button>
+                    <button onClick={() => removerDoCarrinho(item.id)} className="w-7 h-7 rounded-full bg-white border border-[#ebe9e6] hover:border-[#eb0029] text-[#666] hover:text-[#eb0029] flex items-center justify-center transition text-lg font-bold">−</button>
+                    <span className="text-[#04000b] font-bold w-4 text-center text-sm">{item.quantidade}</span>
+                    <button onClick={() => adicionarAoCarrinho(item)} className="w-7 h-7 rounded-full bg-[#eb0029] hover:bg-[#f76e2a] text-white flex items-center justify-center transition text-lg font-bold">+</button>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="px-5 py-4 border-t border-white/10 space-y-3">
+            <div className="px-5 py-4 border-t border-[#ebe9e6] space-y-3 bg-[#faf1df]">
               <div className="flex justify-between items-center">
-                <span className="text-gray-400 text-sm">Subtotal</span>
-                <span className="text-white font-bold">R$ {totalValor.toFixed(2)}</span>
+                <span className="text-[#666] text-sm">Subtotal</span>
+                <span className="text-[#04000b] font-bold">R$ {totalValor.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between items-center border-t border-white/10 pt-3">
-                <span className="text-white font-bold">Total</span>
-                <span className="text-amber-400 font-black text-lg">R$ {totalValor.toFixed(2)}</span>
+              <div className="flex justify-between items-center border-t border-[#ebe9e6] pt-3">
+                <span className="font-oswald uppercase text-[#04000b] font-bold tracking-tight">Total</span>
+                <span className="text-[#eb0029] font-oswald font-bold text-xl">R$ {totalValor.toFixed(2)}</span>
               </div>
-              <button onClick={irParaPedido} className="w-full bg-amber-600 hover:bg-amber-700 active:scale-[0.98] transition-all text-white py-4 rounded-xl font-bold text-base">Finalizar Pedido →</button>
-              <button onClick={limparCarrinho} className="w-full text-gray-500 hover:text-red-400 text-sm transition py-1">Limpar carrinho</button>
+              <button onClick={irParaPedido} className="w-full bg-[#eb0029] hover:bg-[#f76e2a] active:scale-[0.98] transition-all text-white py-4 rounded-full font-oswald uppercase tracking-wide font-medium text-base">Finalizar Pedido →</button>
+              <button onClick={limparCarrinho} className="w-full text-[#999] hover:text-[#eb0029] text-sm transition py-1">Limpar carrinho</button>
             </div>
           </div>
         </div>
       )}
 
+      {/* BARRA FIXA MOBILE */}
       {totalItens > 0 && (
         <div className="fixed bottom-4 left-4 right-4 max-w-lg mx-auto z-40 md:hidden">
-          <button onClick={() => setCartAberto(true)} className="w-full bg-amber-600 hover:bg-amber-700 active:scale-[0.98] transition-all text-white py-4 rounded-2xl font-bold shadow-2xl shadow-amber-900/50 flex items-center justify-between px-5">
-            <span className="bg-amber-800/60 text-white rounded-xl w-8 h-8 flex items-center justify-center text-sm font-black">{totalItens}</span>
+          <button onClick={() => setCartAberto(true)} className="w-full bg-[#eb0029] hover:bg-[#f76e2a] active:scale-[0.98] transition-all text-white py-4 rounded-full font-oswald uppercase tracking-wide font-medium shadow-2xl shadow-[#eb0029]/40 flex items-center justify-between px-5">
+            <span className="bg-white/25 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">{totalItens}</span>
             <span className="text-base">Ver Pedido</span>
-            <span className="text-base font-black">R$ {totalValor.toFixed(2)}</span>
+            <span className="text-base font-bold">R$ {totalValor.toFixed(2)}</span>
           </button>
         </div>
       )}
 
+      {/* BOTÃO FIXO DESKTOP */}
       {totalItens > 0 && (
         <div className="fixed bottom-6 right-6 z-40 hidden md:block">
-          <button onClick={() => setCartAberto(true)} className="bg-amber-600 hover:bg-amber-700 active:scale-95 transition-all text-white px-6 py-3 rounded-2xl font-bold shadow-2xl shadow-amber-900/50 flex items-center gap-3">
+          <button onClick={() => setCartAberto(true)} className="bg-[#eb0029] hover:bg-[#f76e2a] active:scale-95 transition-all text-white px-6 py-3 rounded-full font-oswald uppercase tracking-wide font-medium shadow-2xl shadow-[#eb0029]/40 flex items-center gap-3">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-1.4 7h12.8M10 21a1 1 0 100-2 1 1 0 000 2zm8 0a1 1 0 100-2 1 1 0 000 2z" /></svg>
             <span>{totalItens} {totalItens === 1 ? 'item' : 'itens'}</span>
-            <span className="bg-amber-800/60 px-2 py-0.5 rounded-lg">R$ {totalValor.toFixed(2)}</span>
+            <span className="bg-white/25 px-2 py-0.5 rounded-full">R$ {totalValor.toFixed(2)}</span>
           </button>
         </div>
       )}
@@ -318,7 +343,7 @@ function CardapioContent() {
 
 export default function Cardapio() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center"><div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" /></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#faf1df] flex items-center justify-center"><div className="w-12 h-12 border-4 border-[#eb0029] border-t-transparent rounded-full animate-spin" /></div>}>
       <CardapioContent />
     </Suspense>
   )
