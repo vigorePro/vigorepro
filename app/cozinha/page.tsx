@@ -46,7 +46,7 @@ function CozinhaContent() {
       .select('*, itens:pedido_itens(*)')
       .eq('restaurante_slug', slug)
       .in('status', ['em_producao', 'confirmado', 'em_preparo', 'pronto'])
-      .order('created_at', { ascending: true })
+      .order('criado_em', { ascending: true })
     if (data) {
       const novosCount = data.length
       if (pedidosAnterior.current >= 0 && novosCount > pedidosAnterior.current) {
@@ -59,7 +59,10 @@ function CozinhaContent() {
 
   function tocarBeep() {
     try {
-      const ctx = new ((window as Record<string, unknown>).AudioContext as typeof AudioContext || (window as Record<string, unknown>).webkitAudioContext as typeof AudioContext)()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const w = window as any
+      const AudioCtx = w.AudioContext || w.webkitAudioContext
+      const ctx = new AudioCtx()
       const osc = ctx.createOscillator()
       osc.connect(ctx.destination)
       osc.frequency.value = 880
@@ -79,11 +82,11 @@ function CozinhaContent() {
     buscarPedidos()
   }
 
-  function tempoDecorrido(createdAt: string) {
-    const diff = Math.floor((agora.getTime() - new Date(createdAt).getTime()) / 1000)
+  function tempoDecorrido(criadoEm: string) {
+    const diff = Math.floor((agora.getTime() - new Date(criadoEm).getTime()) / 1000)
     const min = Math.floor(diff / 60)
     const seg = diff % 60
-    return `${min}:${String(seg).padStart(2, '0')}`
+    return min + ':' + String(seg).padStart(2, '0')
   }
 
   const colunas = [
@@ -118,11 +121,11 @@ function CozinhaContent() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Link
-            href={slug ? `/dashboard?slug=${slug}` : '/dashboard'}
+            href={slug ? '/dashboard?slug=' + slug : '/dashboard'}
             className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors text-white text-sm font-bold"
             title="Voltar ao Dashboard"
           >
-            &larr;
+            {'<'}
           </Link>
           <h1 className="text-xl font-bold">Cozinha</h1>
         </div>
@@ -132,7 +135,7 @@ function CozinhaContent() {
         {colunas.map(coluna => (
           <div
             key={coluna.key}
-            className={`rounded-xl border ${coluna.borda} ${coluna.bg} bg-opacity-20 p-3 flex flex-col`}
+            className={'rounded-xl border ' + coluna.borda + ' ' + coluna.bg + ' bg-opacity-20 p-3 flex flex-col'}
           >
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-bold text-sm" style={{ color: coluna.cor }}>{coluna.titulo}</h2>
@@ -152,8 +155,8 @@ function CozinhaContent() {
                   return (
                     <div key={pedido.id} className="bg-gray-800 rounded-lg p-3 border border-gray-700">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-bold text-sm">#{pedido.numero_pedido}</span>
-                        <span className="text-xs text-gray-400">{tempoDecorrido(pedido.created_at)}</span>
+                        <span className="font-bold text-sm">{'#' + pedido.numero_pedido}</span>
+                        <span className="text-xs text-gray-400">{tempoDecorrido(pedido.criado_em)}</span>
                       </div>
                       <div className="text-sm text-gray-300 mb-1">{pedido.cliente_nome}</div>
                       {pedido.tipo_entrega && (
@@ -161,11 +164,11 @@ function CozinhaContent() {
                       )}
                       <div className="text-xs text-gray-400 mb-2">
                         {pedido.itens.map((item, i) => (
-                          <div key={i}>{item.quantidade}x {item.nome}</div>
+                          <div key={i}>{item.quantidade + 'x ' + item.nome}</div>
                         ))}
                       </div>
                       {pedido.observacoes && (
-                        <div className="text-xs text-yellow-400 mb-2 italic">Obs: {pedido.observacoes}</div>
+                        <div className="text-xs text-yellow-400 mb-2 italic">{'Obs: ' + pedido.observacoes}</div>
                       )}
                       {config && pedido.status !== 'entregue' && (
                         <div className="mt-2">
