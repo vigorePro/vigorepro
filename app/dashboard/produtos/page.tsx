@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -9,6 +9,7 @@ type Produto = { id: string; nome: string; descricao: string; preco: number; ima
 
 export default function ProdutosPage() {
   const router = useRouter()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [produtos, setProdutos] = useState<Produto[]>([])
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [estabelecimentoId, setEstabelecimentoId] = useState<string>('')
@@ -16,6 +17,7 @@ export default function ProdutosPage() {
   const [modalAberto, setModalAberto] = useState(false)
   const [editando, setEditando] = useState<Produto | null>(null)
   const [salvando, setSalvando] = useState(false)
+  const [enviandoImagem, setEnviandoImagem] = useState(false)
   const [mensagem, setMensagem] = useState('')
   const [form, setForm] = useState({ nome: '', descricao: '', preco: '', imagem_url: '', disponivel: true, categoria_id: '', ordem: '0' })
 
@@ -35,14 +37,34 @@ export default function ProdutosPage() {
     setCarregando(false)
   }
 
+  async function uploadImagem(file: File): Promise<string | null> {
+    setEnviandoImagem(true)
+    const ext = file.name.split('.').pop()
+    const path = `produtos/${Date.now()}.${ext}`
+    const { error } = await supabase.storage.from('assets').upload(path, file, { upsert: true, contentType: file.type })
+    if (error) { setMensagem('Erro no upload: ' + error.message); setEnviandoImagem(false); return null }
+    const { data } = supabase.storage.from('assets').getPublicUrl(path)
+    setEnviandoImagem(false)
+    return data.publicUrl
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const url = await uploadImagem(file)
+    if (url) setForm(f => ({ ...f, imagem_url: url }))
+  }
+
   function abrirNovo() {
     setEditando(null)
+    setMensagem('')
     setForm({ nome: '', descricao: '', preco: '', imagem_url: '', disponivel: true, categoria_id: categorias[0]?.id || '', ordem: '0' })
     setModalAberto(true)
   }
 
   function abrirEdicao(p: Produto) {
     setEditando(p)
+    setMensagem('')
     setForm({ nome: p.nome, descricao: p.descricao || '', preco: p.preco.toString(), imagem_url: p.imagem_url || '', disponivel: p.disponivel, categoria_id: p.categoria_id || '', ordem: p.ordem?.toString() || '0' })
     setModalAberto(true)
   }
@@ -103,7 +125,7 @@ export default function ProdutosPage() {
                 {prodsCat.map(produto => (
                   <div key={produto.id} className="flex items-center gap-4 px-4 py-3">
                     <div className="w-14 h-14 rounded-xl overflow-hidden bg-[#1a1a1a] flex-shrink-0">
-                      {produto.imagem_url ? <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-2xl opacity-20">ð</div>}
+                      {produto.imagem_url ? <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-2xl opacity-20">🎂</div>}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-white truncate">{produto.nome}</p>
@@ -111,7 +133,7 @@ export default function ProdutosPage() {
                       <p className="text-amber-400 text-sm font-bold mt-0.5">R$ {produto.preco.toFixed(2)}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <button type="button" onClick={() => toggleDisponivel(produto)} className={`relative w-10 h-5 rounded-full transition-colors ${produto.disponivel ? 'bg-amber-600' : 'bg-white/10'}`} title={produto.disponivel ? 'DisponÃ­vel' : 'IndisponÃ­vel'}>
+                      <button type="button" onClick={() => toggleDisponivel(produto)} className={`relative w-10 h-5 rounded-full transition-colors ${produto.disponivel ? 'bg-amber-600' : 'bg-white/10'}`} title={produto.disponivel ? 'Disponível' : 'Indisponível'}>
                         <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${produto.disponivel ? 'translate-x-5' : 'translate-x-0.5'}`} />
                       </button>
                       <button onClick={() => abrirEdicao(produto)} className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center transition">
@@ -134,7 +156,7 @@ export default function ProdutosPage() {
               {produtos.filter(p => !p.categoria_id).map(produto => (
                 <div key={produto.id} className="flex items-center gap-4 px-4 py-3">
                   <div className="w-14 h-14 rounded-xl overflow-hidden bg-[#1a1a1a] flex-shrink-0">
-                    {produto.imagem_url ? <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-2xl opacity-20">ð</div>}
+                    {produto.imagem_url ? <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-2xl opacity-20">🎂</div>}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-white truncate">{produto.nome}</p>
@@ -158,7 +180,7 @@ export default function ProdutosPage() {
         )}
         {produtos.length === 0 && (
           <div className="text-center py-20">
-            <div className="text-5xl mb-4">ð½ï¸</div>
+            <div className="text-5xl mb-4">🍽️</div>
             <p className="text-gray-500 mb-4">Nenhum produto cadastrado ainda</p>
             <button onClick={abrirNovo} className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-xl font-bold">Adicionar primeiro produto</button>
           </div>
@@ -170,7 +192,7 @@ export default function ProdutosPage() {
           <div className="relative w-full max-w-lg bg-[#161616] rounded-2xl border border-white/10 shadow-2xl overflow-y-auto max-h-[90vh]">
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
               <h2 className="text-lg font-bold text-white">{editando ? 'Editar Produto' : 'Novo Produto'}</h2>
-              <button onClick={() => setModalAberto(false)} className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 flex items-center justify-center">â</button>
+              <button onClick={() => setModalAberto(false)} className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 flex items-center justify-center">✕</button>
             </div>
             <form onSubmit={salvar} className="px-6 py-5 space-y-4">
               <div>
@@ -178,12 +200,12 @@ export default function ProdutosPage() {
                 <input type="text" required value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-amber-500 transition" placeholder="Ex: Torta de frango" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">DescriÃ§Ã£o</label>
+                <label className="block text-xs font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">Descrição</label>
                 <textarea value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} rows={2} className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-amber-500 transition resize-none" placeholder="Descreva o produto..." />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">PreÃ§o (R$) *</label>
+                  <label className="block text-xs font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">Preço (R$) *</label>
                   <input type="number" required step="0.01" min="0" value={form.preco} onChange={e => setForm(f => ({ ...f, preco: e.target.value }))} className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-amber-500 transition" placeholder="0.00" />
                 </div>
                 <div>
@@ -195,14 +217,30 @@ export default function ProdutosPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">URL da Imagem</label>
-                <input type="url" value={form.imagem_url} onChange={e => setForm(f => ({ ...f, imagem_url: e.target.value }))} className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-amber-500 transition" placeholder="https://..." />
-                {form.imagem_url && <img src={form.imagem_url} alt="preview" className="mt-2 w-20 h-20 object-cover rounded-xl border border-white/10" onError={e => (e.currentTarget.style.display = 'none')} />}
+                <label className="block text-xs font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">Imagem do Produto</label>
+                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileChange} className="hidden" />
+                {form.imagem_url ? (
+                  <div className="relative group w-full h-40 rounded-xl overflow-hidden border border-white/10">
+                    <img src={form.imagem_url} alt="preview" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-3">
+                      <button type="button" onClick={() => fileInputRef.current?.click()} className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">Trocar</button>
+                      <button type="button" onClick={() => setForm(f => ({ ...f, imagem_url: '' }))} className="bg-red-600/60 hover:bg-red-600/80 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">Remover</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => fileInputRef.current?.click()} disabled={enviandoImagem} className="w-full h-32 border-2 border-dashed border-white/10 hover:border-amber-500/50 rounded-xl flex flex-col items-center justify-center gap-2 text-gray-500 hover:text-amber-400 transition disabled:opacity-50">
+                    {enviandoImagem ? (
+                      <><div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" /><span className="text-sm">Enviando...</span></>
+                    ) : (
+                      <><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span className="text-sm font-medium">Clique para adicionar foto</span><span className="text-xs">JPG, PNG ou WebP</span></>
+                    )}
+                  </button>
+                )}
               </div>
               <div className="flex items-center justify-between bg-[#1a1a1a] rounded-xl px-4 py-3">
                 <div>
-                  <p className="text-white text-sm font-semibold">DisponÃ­vel no cardÃ¡pio</p>
-                  <p className="text-gray-500 text-xs">VisÃ­vel para clientes</p>
+                  <p className="text-white text-sm font-semibold">Disponível no cardápio</p>
+                  <p className="text-gray-500 text-xs">Visível para clientes</p>
                 </div>
                 <button type="button" onClick={() => setForm(f => ({ ...f, disponivel: !f.disponivel }))} className={`relative w-12 h-6 rounded-full transition-colors ${form.disponivel ? 'bg-amber-600' : 'bg-white/10'}`}>
                   <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.disponivel ? 'translate-x-7' : 'translate-x-1'}`} />
@@ -211,7 +249,7 @@ export default function ProdutosPage() {
               {mensagem && <p className="text-red-400 text-sm">{mensagem}</p>}
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setModalAberto(false)} className="flex-1 bg-white/5 hover:bg-white/10 text-gray-400 py-3 rounded-xl font-bold transition">Cancelar</button>
-                <button type="submit" disabled={salvando} className="flex-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white py-3 rounded-xl font-bold transition">{salvando ? 'Salvando...' : editando ? 'Salvar' : 'Criar Produto'}</button>
+                <button type="submit" disabled={salvando || enviandoImagem} className="flex-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white py-3 rounded-xl font-bold transition">{salvando ? 'Salvando...' : editando ? 'Salvar' : 'Criar Produto'}</button>
               </div>
             </form>
           </div>
