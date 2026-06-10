@@ -20,7 +20,7 @@ function CozinhaContent() {
   const slug = searchParams.get('slug') || ''
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [agora, setAgora] = useState(new Date())
-  const pedidosAnterior = useRef(-1)
+  const pedidosAnterior = useRef<number>(-1)
 
   useEffect(() => {
     if (!slug) return
