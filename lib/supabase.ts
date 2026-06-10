@@ -20,6 +20,7 @@ export type Categoria = {
   estabelecimento_id: string
   nome: string
   ordem: number
+  banner_url: string | null
 }
 
 export type Produto = {
