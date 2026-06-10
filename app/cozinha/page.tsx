@@ -23,13 +23,17 @@ function CozinhaContent() {
   const pedidosAnterior = useRef<number>(-1)
 
   useEffect(() => {
+    const interval = setInterval(() => setAgora(new Date()), 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
     if (!slug) return
     carregarPedidos()
-    const interval = setInterval(() => {
-      carregarPedidos()
-      setAgora(new Date())
-    }, 5000)
-    return () => clearInterval(interval)
+    const canal = supabase.channel('cozinha-' + slug)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, carregarPedidos)
+      .subscribe()
+    return () => { supabase.removeChannel(canal) }
   }, [slug])
 
   function tocarBeep() {
@@ -69,14 +73,14 @@ function CozinhaContent() {
     const config = STATUS_CONFIG[pedido.status as StatusKey]
     if (!config) return
     await supabase.from('pedidos').update({ status: config.proximo }).eq('id', pedido.id)
-    carregarPedidos()
+    await carregarPedidos()
   }
 
   function tempoDecorrido(criado_em: string) {
     const diff = Math.floor((agora.getTime() - new Date(criado_em).getTime()) / 1000)
     const min = Math.floor(diff / 60)
     const seg = diff % 60
-    return min + ':' + String(seg).padStart(2, '0')
+    return `${min}:${String(seg).padStart(2, '0')}`
   }
 
   const colunas = [
@@ -109,13 +113,13 @@ function CozinhaContent() {
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Cozinha</h1>
+        <h1 className="text-xl font-bold">🍳 Cozinha</h1>
         <div className="text-gray-400 text-sm">{agora.toLocaleTimeString('pt-BR')}</div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
         {colunas.map(coluna => (
-          <div key={coluna.key} className={'rounded-xl border ' + coluna.borda + ' ' + coluna.bg + ' p-3'}>
+          <div key={coluna.key} className={['rounded-xl border', coluna.borda, coluna.bg, 'p-3'].join(' ')}>
             <h2 className={coluna.cor + ' font-bold mb-3 text-sm flex items-center justify-between'}>
               <span>{coluna.titulo}</span>
               <span className="bg-gray-700 text-white text-xs rounded-full px-2 py-0.5">{coluna.itens.length}</span>
@@ -140,23 +144,20 @@ function CozinhaContent() {
                         <div className="text-xs text-gray-400">{tempoDecorrido(pedido.criado_em)}</div>
                       </div>
                     </div>
-
                     <div className="px-3 py-2">
                       <div className="space-y-1 mb-2">
-                        {(pedido.items as any[]).map((item: any, i: number) => (
+                        {(pedido.items as {quantidade: number, nome: string}[]).map((item, i) => (
                           <div key={i} className="flex justify-between text-sm">
                             <span className="text-white">{item.quantidade}x {item.nome}</span>
                           </div>
                         ))}
                       </div>
-
                       {pedido.observacoes && (
                         <div className="text-xs bg-yellow-900 text-yellow-300 rounded p-2 mb-2">{pedido.observacoes}</div>
                       )}
-
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-gray-400">
-                          {pedido.tipo_entrega === 'delivery' ? 'Delivery' : 'Retirada'}
+                          {pedido.tipo_entrega === 'delivery' ? '🛵 Delivery' : '🏠 Retirada'}
                         </span>
                         {config && (
                           <button
@@ -182,7 +183,7 @@ function CozinhaContent() {
 
 export default function Cozinha() {
   return (
-    <Suspense fallback={<div>Carregando...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Carregando...</div>}>
       <CozinhaContent />
     </Suspense>
   )
