@@ -20,7 +20,7 @@ function DashboardContent() {
   const router = useRouter()
   const slug = searchParams.get('slug')
   const [estabelecimento, setEstabelecimento] = useState<Estabelecimento | null>(null)
-  const [pedidos, setPedidos] = useState<Pedido[]>([])
+  const [pedidos, setPedidos] = useState<Pedido[]>([])h
   const pedidosAnterior = useRef<number>(-1)
   const [abaAtiva, setAbaAtiva] = useState<'producao' | 'entrega' | 'historico'>('producao')
   const [carregando, setCarregando] = useState(true)
@@ -135,7 +135,7 @@ function DashboardContent() {
             className="bg-gray-800 text-white px-3 py-1.5 rounded-lg text-sm">Cozinha</button>
           <button onClick={() => router.push('/dashboard/produtos')}
             className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">Produtos</button>
-          <button onClick={() => router.push('/dashboard/categorias?slug=' + slug)}
+          <button onClick={() => router.push('/dashboard/categorias?slug=' + (slug || estabelecimento?.slug))}
             className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">Banners</button>
           <button onClick={() => supabase.auth.signOut().then(() => router.push('/admin'))}
             className="text-gray-400 text-sm px-2 py-1 rounded hover:bg-gray-100">Sair</button>
