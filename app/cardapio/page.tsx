@@ -167,22 +167,23 @@ function CardapioContent() {
         
         
 
-        <div className="relative z-10 max-w-6xl mx-auto px-5 py-14 md:py-20 grid md:grid-cols-2 gap-8 items-center">
-          <div className="text-center md:text-left">
-            <img src="/assets/img/hero/logo-dolce.png" alt={estabelecimento.nome} className="w-64 md:w-80 drop-shadow-xl mb-4" />
-            <p className="text-white/90 text-base md:text-lg mt-2 font-medium tracking-wide max-w-md mx-auto md:mx-0">
+        <div className="relative z-10 max-w-6xl mx-auto px-5 py-8 md:py-20 flex flex-col md:grid md:grid-cols-2 gap-0 md:gap-8 items-center">
+          {/* Coluna esquerda: logo + slogan + botão */}
+          <div className="text-center md:text-left flex flex-col items-center md:items-start">
+            <img src="/assets/img/hero/logo-dolce.png" alt={estabelecimento.nome} className="w-48 md:w-80 drop-shadow-xl mb-3" />
+            <p className="text-white/90 text-sm md:text-lg font-medium tracking-wide max-w-xs mx-auto md:mx-0">
               Qualidade que se prova todo dia.
             </p>
             <button
               onClick={rolarParaMenu}
-              className="mt-7 bg-[#eb0029] hover:bg-white hover:text-[#eb0029] transition-colors text-white font-oswald uppercase tracking-wide px-9 py-4 rounded-full shadow-xl shadow-black/20"
+              className="mt-5 bg-[#eb0029] hover:bg-white hover:text-[#eb0029] transition-colors text-white font-oswald uppercase tracking-wide px-9 py-3 md:py-4 rounded-full shadow-xl shadow-black/20"
             >
               Peça Agora
             </button>
           </div>
-          <div className="relative flex justify-center">
-            
-            <img src="/assets/img/hero/hero-food.png" alt="Destaque" className="w-64 md:w-[26rem] drop-shadow-2xl" style={{mixBlendMode: 'multiply'}} />
+          {/* Coluna direita: modelo */}
+          <div className="relative flex justify-center mt-4 md:mt-0">
+            <img src="/assets/img/hero/hero-food.png" alt="Destaque" className="w-56 md:w-[26rem] drop-shadow-2xl" style={{mixBlendMode: 'screen'}} />
           </div>
         </div>
       </header>
