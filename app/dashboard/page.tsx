@@ -13,7 +13,7 @@ const STATUS_LABELS: Record<string, { label: string; cor: string; bg: string }> 
   pronto: { label: 'Pronto', cor: '#10B981', bg: '#F0FDF4' },
   entregue: { label: 'Entregue', cor: '#6B7280', bg: '#F9FAFB' },
   cancelado: { label: 'Cancelado', cor: '#EF4444', bg: '#FEF2F2' },
-}
+}h
 
 function DashboardContent() {
   const searchParams = useSearchParams()
@@ -135,7 +135,7 @@ function DashboardContent() {
             className="bg-gray-800 text-white px-3 py-1.5 rounded-lg text-sm">Cozinha</button>
           <button onClick={() => router.push('/dashboard/produtos')}
             className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">Produtos</button>
-          <button onClick={() => router.push('/dashboard/categorias')}
+          <button onClick={() => router.push('/dashboard/categorias?slug=' + slug)}
             className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">Banners</button>
           <button onClick={() => supabase.auth.signOut().then(() => router.push('/admin'))}
             className="text-gray-400 text-sm px-2 py-1 rounded hover:bg-gray-100">Sair</button>
