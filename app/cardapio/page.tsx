@@ -11,7 +11,7 @@ type CarrinhoItem = Produto & { quantidade: number }
 function CardapioContent() {
   const searchParams = useSearchParams()
  const slug =
-    slugFromParams ||
+    searchParams.get('slug') ||
     (typeof window !== 'undefined'
       ? window.location.hostname.replace('.vigorepro.com.br', '')
       : '')
