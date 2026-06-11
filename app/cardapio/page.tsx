@@ -169,16 +169,9 @@ function CardapioContent() {
 
         <div className="relative z-10 max-w-6xl mx-auto px-5 py-14 md:py-20 grid md:grid-cols-2 gap-8 items-center">
           <div className="text-center md:text-left">
-            <span className="inline-block border border-white/40 text-white text-xs md:text-sm uppercase tracking-widest px-5 py-2 rounded-full mb-5">
-              Peça agora · Pagamento na entrega
-            </span>
-            <h1 className="font-oswald uppercase text-white font-bold leading-[0.95] text-4xl md:text-6xl tracking-tight">
-              {estabelecimento.nome}
-            </h1>
-            <p className="text-white/85 text-sm md:text-base mt-5 max-w-md mx-auto md:mx-0">
-              {estabelecimento.endereco
-                ? estabelecimento.endereco
-                : 'Sabor de verdade, feito pra você. Escolha seu pedido e receba quentinho.'}
+            <img src="/assets/img/hero/logo-dolce.png" alt={estabelecimento.nome} className="w-64 md:w-80 drop-shadow-xl mb-4" />
+            <p className="text-white/90 text-base md:text-lg mt-2 font-medium tracking-wide max-w-md mx-auto md:mx-0">
+              Qualidade que se prova todo dia.
             </p>
             <button
               onClick={rolarParaMenu}
