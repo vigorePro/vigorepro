@@ -183,7 +183,7 @@ function CardapioContent() {
       {/* CATEGORIAS */}
       <nav id="menu" className="bg-[#faf1df]/95 backdrop-blur border-b border-[#ebe9e6] scroll-mt-20">
         <div className="max-w-2xl mx-auto px-4">
-          <div className="flex gap-2 overflow-x-auto py-3 no-scrollbar">
+          <div className="grid grid-cols-2 gap-2 py-3">
             {categorias.map(cat => (
               <button
                 key={cat.id}
