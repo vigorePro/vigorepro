@@ -182,7 +182,7 @@ function CardapioContent() {
           </div>
           <div className="relative flex justify-center">
             
-            <img src="/assets/img/hero/hero-food.png" alt="Destaque" className="w-64 md:w-[26rem] drop-shadow-2xl" />
+            <img src="/assets/img/hero/hero-food.png" alt="Destaque" className="w-64 md:w-[26rem] drop-shadow-2xl" style={{mixBlendMode: 'multiply'}} />
           </div>
         </div>
       </header>
