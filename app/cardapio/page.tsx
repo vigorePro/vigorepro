@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Estabelecimento, Categoria, Produto } from '@/lib/supabase'
@@ -24,10 +24,22 @@ function CardapioContent() {
   const [carregando, setCarregando] = useState(true)
   const [naoEncontrado, setNaoEncontrado] = useState(false)
   const [cartAberto, setCartAberto] = useState(false)
+  const [bannerCarrossel, setBannerCarrossel] = useState<string[]>([])
+  const [carrosselAtivo, setCarrosselAtivo] = useState(0)
+  const carrosselRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     if (slug) carregarDados()
   }, [slug])
+
+  useEffect(() => {
+    if (bannerCarrossel.length > 1) {
+      carrosselRef.current = setInterval(() => {
+        setCarrosselAtivo(p => (p + 1) % bannerCarrossel.length)
+      }, 4000)
+    }
+    return () => { if (carrosselRef.current) clearInterval(carrosselRef.current) }
+  }, [bannerCarrossel])
 
   async function carregarDados() {
     const { data: est } = await supabase
@@ -55,6 +67,13 @@ function CardapioContent() {
     setCategorias(cats || [])
     setProdutos(prods || [])
     if (cats && cats.length > 0) setCategoriaAtiva(cats[0].id)
+    // Carregar banners do carrossel (1-7)
+    const bannersArr: string[] = []
+    for (let n = 1; n <= 7; n++) {
+      const { data: pub } = supabase.storage.from('banners').getPublicUrl(slug + '/promo-banner-' + n + '.jpg')
+      bannersArr.push(pub.publicUrl)
+    }
+    setBannerCarrossel(bannersArr)
     setCarregando(false)
   }
 
@@ -204,26 +223,30 @@ function CardapioContent() {
 
       {/* LISTA DE PRODUTOS */}
       <main className="max-w-2xl mx-auto px-4 py-8 pb-36">
-        {(() => {
-          const catAtiva = categorias.find(c => c.id === categoriaAtiva)
-          const hasDesktop = catAtiva?.banner_desktop_url
-          const hasMobile = catAtiva?.banner_mobile_url
-          const hasBanner = hasDesktop || hasMobile || catAtiva?.banner_url
-          if (!hasBanner) return null
-          return (
-            <div className="mb-6 rounded-2xl overflow-hidden shadow-sm">
-              {hasDesktop && (
-                <img src={catAtiva.banner_desktop_url!} alt={catAtiva.nome + ' banner'} className="hidden md:block w-full h-44 object-cover" />
-              )}
-              {hasMobile && (
-                <img src={catAtiva.banner_mobile_url!} alt={catAtiva.nome + ' banner'} className={'w-full h-44 object-cover' + (hasDesktop ? ' md:hidden' : '')} />
-              )}
-              {!hasDesktop && !hasMobile && catAtiva?.banner_url && (
-                <img src={catAtiva.banner_url} alt={catAtiva.nome + ' banner'} className="w-full h-44 object-cover" />
-              )}
-            </div>
-          )
-        })()}
+        {bannerCarrossel.length > 0 && (
+          <div className="relative w-full mb-6 overflow-hidden rounded-2xl shadow-sm select-none" style={{aspectRatio:'3/1'}}>
+            {bannerCarrossel.map((url, idx) => (
+              <img
+                key={idx}
+                src={url}
+                alt={'Banner ' + (idx + 1)}
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                className={'absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ' + (idx === carrosselAtivo ? 'opacity-100 z-10' : 'opacity-0 z-0')}
+              />
+            ))}
+            {bannerCarrossel.length > 1 && (
+              <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5 z-20">
+                {bannerCarrossel.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => { setCarrosselAtivo(idx); if(carrosselRef.current) clearInterval(carrosselRef.current); carrosselRef.current = setInterval(() => setCarrosselAtivo(p => (p+1) % bannerCarrossel.length), 4000) }}
+                    className={'w-2 h-2 rounded-full transition-all ' + (idx === carrosselAtivo ? 'bg-white scale-125' : 'bg-white/50')}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="mb-7 text-center">
           <p className="font-script text-[#eb0029] text-2xl leading-none">Nosso menu</p>
