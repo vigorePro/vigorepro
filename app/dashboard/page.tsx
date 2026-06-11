@@ -13,7 +13,7 @@ const STATUS_LABELS: Record<string, { label: string; cor: string; bg: string }> 
   pronto: { label: 'Pronto', cor: '#10B981', bg: '#F0FDF4' },
   entregue: { label: 'Entregue', cor: '#6B7280', bg: '#F9FAFB' },
   cancelado: { label: 'Cancelado', cor: '#EF4444', bg: '#FEF2F2' },
-}h
+}
 
 function DashboardContent() {
   const searchParams = useSearchParams()
