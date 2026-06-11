@@ -191,9 +191,7 @@ function CardapioContent() {
           </div>
           {/* Coluna direita: modelo */}
           <div className="relative flex justify-center mt-4 md:mt-0">
-            <div className="rounded-2xl overflow-hidden" style={{background: 'radial-gradient(ellipse at center, #7a1515 70%, #5a0e0e 100%)'}}>
-              <img src="/assets/img/hero/hero-food.png" alt="Destaque" className="w-56 md:w-[26rem]" />
-            </div>
+            <img src="/assets/img/hero/hero-food.png" alt="Destaque" className="w-56 md:w-[26rem] drop-shadow-2xl" />
           </div>
         </div>
       </header>
