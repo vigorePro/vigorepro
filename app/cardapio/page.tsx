@@ -10,8 +10,7 @@ type CarrinhoItem = Produto & { quantidade: number }
 
 function CardapioContent() {
   const searchParams = useSearchParams()
-  const slugFromParams = searchParams.get('slug') || ''
-  const slug =
+ const slug =
     slugFromParams ||
     (typeof window !== 'undefined'
       ? window.location.hostname.replace('.vigorepro.com.br', '')
@@ -166,17 +165,17 @@ function CardapioContent() {
         
         
 
-        <div className="relative z-10 w-full grid grid-cols-2 md:max-w-6xl md:mx-auto md:px-5 items-end">
+        <div className="relative z-10 w-full grid grid-cols-2 md:max-w-6xl md:mx-auto md:px-5 min-h-[220px] md:min-h-0 items-end">
           {/* Coluna esquerda: logo + slogan */}
-          <div className="text-left flex flex-col items-start px-4 pt-8 pb-8 md:pt-16 md:pb-16 md:px-0">
-            <img src="/assets/img/hero/logo-dolce.png" alt={estabelecimento.nome} className="w-40 sm:w-52 md:w-[28rem] drop-shadow-xl mb-3" />
-            <p className="text-white text-xs sm:text-sm md:text-2xl font-medium tracking-wide whitespace-nowrap drop-shadow-md">
+          <div className="text-left flex flex-col justify-end items-start px-4 pt-6 pb-6 md:pt-16 md:pb-16 md:px-0 h-full">
+            <img src="/assets/img/hero/logo-dolce.png" alt={estabelecimento.nome} className="w-[90%] max-w-[200px] md:w-[28rem] md:max-w-none drop-shadow-xl mb-2" />
+            <p className="text-white text-[11px] sm:text-sm md:text-2xl font-medium tracking-wide leading-tight drop-shadow-md">
               Qualidade que se prova todo dia.
             </p>
           </div>
           {/* Coluna direita: modelo alinhada na base */}
           <div className="flex justify-end items-end self-end overflow-hidden">
-            <img src="/assets/img/hero/hero-food.png" alt="Destaque" className="w-44 sm:w-56 md:w-[26rem] drop-shadow-2xl object-bottom" style={{marginBottom: 0}} />
+            <img src="/assets/img/hero/hero-food.png" alt="Destaque" className="w-full max-w-[190px] sm:max-w-[240px] md:w-[26rem] md:max-w-none drop-shadow-2xl" style={{marginBottom: 0}} />
           </div>
         </div>
       </header>
