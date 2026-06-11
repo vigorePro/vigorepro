@@ -20,7 +20,7 @@ function DashboardContent() {
   const router = useRouter()
   const slug = searchParams.get('slug')
   const [estabelecimento, setEstabelecimento] = useState<Estabelecimento | null>(null)
-  const [pedidos, setPedidos] = useState<Pedido[]>([])h
+  const [pedidos, setPedidos] = useState<Pedido[]>([])
   const pedidosAnterior = useRef<number>(-1)
   const [abaAtiva, setAbaAtiva] = useState<'producao' | 'entrega' | 'historico'>('producao')
   const [carregando, setCarregando] = useState(true)
