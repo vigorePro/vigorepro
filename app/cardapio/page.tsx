@@ -169,7 +169,7 @@ function CardapioContent() {
         <div className="relative z-10 max-w-6xl mx-auto px-5 py-8 md:py-20 flex flex-col md:grid md:grid-cols-2 gap-0 md:gap-8 items-center">
           {/* Coluna esquerda: logo + slogan + botão */}
           <div className="text-center md:text-left flex flex-col items-center md:items-start">
-            <img src="/assets/img/hero/logo-dolce.png" alt={estabelecimento.nome} className="w-48 md:w-80 drop-shadow-xl mb-3" />
+            <img src="/assets/img/hero/logo-dolce.png" alt={estabelecimento.nome} className="w-56 md:w-96 drop-shadow-xl mb-3" />
             <p className="text-white/90 text-sm md:text-lg font-medium tracking-wide max-w-xs mx-auto md:mx-0">
               Qualidade que se prova todo dia.
             </p>
