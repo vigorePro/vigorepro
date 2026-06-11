@@ -138,9 +138,8 @@ function CardapioContent() {
       {/* NAVBAR */}
       <div className="sticky top-0 z-40 px-3 pt-3">
         <nav className="max-w-6xl mx-auto bg-white/95 backdrop-blur border border-[#ebe9e6] rounded-full shadow-sm px-5 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="w-9 h-9 rounded-full bg-[#eb0029] flex items-center justify-center text-white text-lg shadow-md shadow-[#eb0029]/30">🍴</span>
-            <span className="font-oswald uppercase text-xl font-bold tracking-tight text-[#04000b] truncate max-w-[160px] sm:max-w-none">{estabelecimento.nome}</span>
+          <div className="flex items-center">
+            <img src="/assets/img/hero/logo-dolce-preta.png" alt={estabelecimento.nome} className="h-10 md:h-12 w-auto object-contain" />
           </div>
           <div className="hidden md:flex items-center gap-7 font-oswald uppercase text-sm tracking-wide text-[#04000b]">
             <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="hover:text-[#eb0029] transition">Início</button>
