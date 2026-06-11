@@ -188,7 +188,7 @@ function CardapioContent() {
           {/* Coluna esquerda: logo + slogan */}
           <div className="text-left flex flex-col justify-end items-start px-4 pt-6 pb-6 md:pt-16 md:pb-16 md:px-0 h-full">
             <img src="/assets/img/hero/logo-dolce.png" alt={estabelecimento.nome} className="w-full max-w-[280px] md:w-[38rem] md:max-w-none drop-shadow-xl" />
-            <p className="text-white text-sm sm:text-base md:text-2xl font-medium tracking-wide leading-tight drop-shadow-md">
+            <p className="text-white text-sm sm:text-base md:text-2xl font-medium tracking-wide leading-tight drop-shadow-md text-right">
               Qualidade que se prova todo dia.
             </p>
           </div>
