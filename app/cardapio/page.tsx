@@ -166,17 +166,17 @@ function CardapioContent() {
         
         
 
-        <div className="relative z-10 max-w-6xl mx-auto px-5 py-8 md:py-20 flex flex-col md:grid md:grid-cols-2 gap-0 md:gap-8 items-center">
-          {/* Coluna esquerda: logo + slogan + botão */}
-          <div className="text-center md:text-left flex flex-col items-center md:items-start">
+        <div className="relative z-10 max-w-6xl mx-auto px-5 pt-8 md:pt-16 pb-0 flex flex-col md:grid md:grid-cols-2 gap-0 md:gap-8 items-end">
+          {/* Coluna esquerda: logo + slogan */}
+          <div className="text-center md:text-left flex flex-col items-center md:items-start pb-8 md:pb-16">
             <img src="/assets/img/hero/logo-dolce.png" alt={estabelecimento.nome} className="w-72 md:w-[28rem] drop-shadow-xl mb-4" />
-            <p className="text-white text-xl md:text-3xl font-medium tracking-wide max-w-md mx-auto md:mx-0 drop-shadow-md">
+            <p className="text-white text-lg md:text-2xl font-medium tracking-wide whitespace-nowrap drop-shadow-md">
               Qualidade que se prova todo dia.
             </p>
           </div>
-          {/* Coluna direita: modelo */}
-          <div className="relative flex justify-center mt-4 md:mt-0">
-            <img src="/assets/img/hero/hero-food.png" alt="Destaque" className="w-56 md:w-[26rem] drop-shadow-2xl" />
+          {/* Coluna direita: modelo alinhada na base */}
+          <div className="flex justify-center items-end self-end">
+            <img src="/assets/img/hero/hero-food.png" alt="Destaque" className="w-56 md:w-[26rem] drop-shadow-2xl block" style={{marginBottom: 0}} />
           </div>
         </div>
       </header>
