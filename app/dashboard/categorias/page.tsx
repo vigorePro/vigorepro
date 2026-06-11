@@ -5,60 +5,38 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import type { Categoria } from '@/lib/supabase'
 
-type UploadType = 'desktop' | 'mobile'
+const TOTAL_BANNERS = 7
 
-function CategoriasContent() {
+function BannersCarrosselContent() {
   const searchParams = useSearchParams()
   const slug = searchParams.get('slug') || ''
-  const [categorias, setCategorias] = useState<Categoria[]>([])
-  const [editando, setEditando] = useState<string | null>(null)
-  const [desktopUrl, setDesktopUrl] = useState('')
-  const [mobileUrl, setMobileUrl] = useState('')
-  const [uploading, setUploading] = useState<UploadType | null>(null)
-  const [salvando, setSalvando] = useState(false)
+  const [banners, setBanners] = useState<(string | null)[]>(Array(TOTAL_BANNERS).fill(null))
+  const [uploading, setUploading] = useState<number | null>(null)
   const [mensagem, setMensagem] = useState('')
 
   useEffect(() => {
-    if (!slug) return
-    buscarCategorias()
+    if (slug) carregarBanners()
   }, [slug])
 
-  async function buscarCategorias() {
-    const { data: est } = await supabase
-      .from('estabelecimentos')
-      .select('id')
-      .eq('slug', slug)
-      .single()
-    if (!est) return
-    const { data: cats } = await supabase
-      .from('categorias')
-      .select('*')
-      .eq('estabelecimento_id', est.id)
-      .order('ordem')
-    if (cats) setCategorias(cats as Categoria[])
+  async function carregarBanners() {
+    const urls: (string | null)[] = []
+    for (let n = 1; n <= TOTAL_BANNERS; n++) {
+      const path = slug + '/promo-banner-' + n + '.jpg'
+      const { data } = supabase.storage.from('banners').getPublicUrl(path)
+      // Try to verify the file exists
+      const res = await fetch(data.publicUrl, { method: 'HEAD' })
+      urls.push(res.ok ? data.publicUrl + '?t=' + Date.now() : null)
+    }
+    setBanners(urls)
   }
 
-  function iniciarEdicao(cat: Categoria) {
-    setEditando(cat.id)
-    setDesktopUrl(cat.banner_desktop_url || cat.banner_url || '')
-    setMobileUrl(cat.banner_mobile_url || cat.banner_url || '')
+  async function uploadBanner(file: File, slot: number) {
+    setUploading(slot)
     setMensagem('')
-  }
-
-  function cancelarEdicao() {
-    setEditando(null)
-    setDesktopUrl('')
-    setMobileUrl('')
-    setMensagem('')
-  }
-
-  async function uploadImagem(file: File, tipo: UploadType, catId: string) {
-    setUploading(tipo)
-    setMensagem('')
-    const ext = file.name.split('.').pop() || 'jpg'
-    const path = slug + '/' + catId + '-' + tipo + '-' + Date.now() + '.' + ext
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+    const path = slug + '/promo-banner-' + slot + '.jpg'
+    // Convert to jpg name regardless of extension
     const { data, error } = await supabase.storage
       .from('banners')
       .upload(path, file, { upsert: true, contentType: file.type })
@@ -68,33 +46,23 @@ function CategoriasContent() {
       return
     }
     const { data: urlData } = supabase.storage.from('banners').getPublicUrl(data.path)
-    if (tipo === 'desktop') {
-      setDesktopUrl(urlData.publicUrl)
-    } else {
-      setMobileUrl(urlData.publicUrl)
-    }
+    const newBanners = [...banners]
+    newBanners[slot - 1] = urlData.publicUrl + '?t=' + Date.now()
+    setBanners(newBanners)
+    setMensagem('Banner ' + slot + ' salvo com sucesso!')
     setUploading(null)
   }
 
-  async function salvarBanners(catId: string) {
-    setSalvando(true)
+  async function removerBanner(slot: number) {
+    setUploading(slot)
     setMensagem('')
-    const { error } = await supabase
-      .from('categorias')
-      .update({
-        banner_desktop_url: desktopUrl || null,
-        banner_mobile_url: mobileUrl || null,
-        banner_url: desktopUrl || mobileUrl || null,
-      })
-      .eq('id', catId)
-    if (error) {
-      setMensagem('Erro ao salvar: ' + error.message)
-    } else {
-      setMensagem('Banners salvos com sucesso!')
-      setEditando(null)
-      buscarCategorias()
-    }
-    setSalvando(false)
+    const path = slug + '/promo-banner-' + slot + '.jpg'
+    await supabase.storage.from('banners').remove([path])
+    const newBanners = [...banners]
+    newBanners[slot - 1] = null
+    setBanners(newBanners)
+    setMensagem('Banner ' + slot + ' removido.')
+    setUploading(null)
   }
 
   return (
@@ -106,8 +74,14 @@ function CategoriasContent() {
         >
           {'<'}
         </Link>
-        <h1 className="text-xl font-bold">Banners das Categorias</h1>
+        <h1 className="text-xl font-bold">Carrossel de Banners</h1>
+        <span className="text-gray-400 text-sm ml-auto">{TOTAL_BANNERS} slots</span>
       </div>
+
+      <p className="text-gray-400 text-sm mb-6">
+        Faça upload de até {TOTAL_BANNERS} banners promocionais. Eles aparecem em carrossel automático no cardápio.
+        Tamanho recomendado: <strong className="text-yellow-400">1200 x 400px</strong>
+      </p>
 
       {mensagem && (
         <div className={'mb-4 p-3 rounded-lg text-sm ' + (mensagem.startsWith('Erro') ? 'bg-red-900 text-red-200' : 'bg-green-900 text-green-200')}>
@@ -116,108 +90,51 @@ function CategoriasContent() {
       )}
 
       <div className="flex flex-col gap-4">
-        {categorias.map(cat => (
-          <div key={cat.id} className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+        {Array.from({ length: TOTAL_BANNERS }, (_, i) => i + 1).map(slot => (
+          <div key={slot} className="bg-gray-800 rounded-xl p-4 border border-gray-700">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-bold text-lg">{cat.nome}</h2>
-              {editando !== cat.id && (
+              <h2 className="font-bold text-lg text-yellow-400">Banner {slot}</h2>
+              {banners[slot - 1] && uploading !== slot && (
                 <button
-                  onClick={() => iniciarEdicao(cat)}
-                  className="px-3 py-1 bg-yellow-500 hover:bg-yellow-600 text-black text-sm font-bold rounded-lg transition-colors"
+                  onClick={() => removerBanner(slot)}
+                  className="px-3 py-1 bg-red-700 hover:bg-red-600 text-white text-xs font-bold rounded-lg transition-colors"
                 >
-                  Editar Banners
+                  Remover
                 </button>
               )}
             </div>
 
-            {editando !== cat.id && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-gray-400 mb-1">Desktop (1200x300px)</p>
-                  {cat.banner_desktop_url ? (
-                    <img src={cat.banner_desktop_url} alt="Desktop" className="w-full h-20 object-cover rounded-lg" />
-                  ) : (
-                    <div className="w-full h-20 bg-gray-700 rounded-lg flex items-center justify-center text-gray-500 text-xs">Sem banner desktop</div>
-                  )}
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400 mb-1">Mobile (600x300px)</p>
-                  {cat.banner_mobile_url ? (
-                    <img src={cat.banner_mobile_url} alt="Mobile" className="w-full h-20 object-cover rounded-lg" />
-                  ) : (
-                    <div className="w-full h-20 bg-gray-700 rounded-lg flex items-center justify-center text-gray-500 text-xs">Sem banner mobile</div>
-                  )}
-                </div>
+            {banners[slot - 1] ? (
+              <div className="mb-3">
+                <img
+                  src={banners[slot - 1]!}
+                  alt={'Banner ' + slot}
+                  className="w-full h-28 object-cover rounded-lg border border-gray-600"
+                />
+              </div>
+            ) : (
+              <div className="w-full h-28 bg-gray-700 rounded-lg flex items-center justify-center text-gray-500 text-sm mb-3 border-2 border-dashed border-gray-600">
+                Sem banner
               </div>
             )}
 
-            {editando === cat.id && (
-              <div className="flex flex-col gap-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="bg-gray-750 rounded-lg p-3 border border-gray-600">
-                    <p className="text-sm font-semibold text-yellow-400 mb-1">Desktop</p>
-                    <p className="text-xs text-gray-400 mb-2">Tamanho recomendado: 1200 x 300 px</p>
-                    <label className="block w-full cursor-pointer">
-                      <div className={'w-full py-3 px-4 rounded-lg border-2 border-dashed text-center text-sm transition-colors ' + (uploading === 'desktop' ? 'border-yellow-500 text-yellow-400' : 'border-gray-500 text-gray-400 hover:border-yellow-500 hover:text-yellow-400')}>
-                        {uploading === 'desktop' ? 'Enviando...' : 'Clique para enviar imagem'}
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        className="hidden"
-                        disabled={uploading !== null}
-                        onChange={e => { if (e.target.files?.[0]) uploadImagem(e.target.files[0], 'desktop', cat.id) }}
-                      />
-                    </label>
-                    {desktopUrl && (
-                      <div className="mt-2">
-                        <img src={desktopUrl} alt="Preview desktop" className="w-full h-24 object-cover rounded-lg" />
-                        <button onClick={() => setDesktopUrl('')} className="mt-1 text-xs text-red-400 hover:text-red-300">Remover</button>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="bg-gray-750 rounded-lg p-3 border border-gray-600">
-                    <p className="text-sm font-semibold text-blue-400 mb-1">Mobile</p>
-                    <p className="text-xs text-gray-400 mb-2">Tamanho recomendado: 600 x 300 px</p>
-                    <label className="block w-full cursor-pointer">
-                      <div className={'w-full py-3 px-4 rounded-lg border-2 border-dashed text-center text-sm transition-colors ' + (uploading === 'mobile' ? 'border-blue-500 text-blue-400' : 'border-gray-500 text-gray-400 hover:border-blue-500 hover:text-blue-400')}>
-                        {uploading === 'mobile' ? 'Enviando...' : 'Clique para enviar imagem'}
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        className="hidden"
-                        disabled={uploading !== null}
-                        onChange={e => { if (e.target.files?.[0]) uploadImagem(e.target.files[0], 'mobile', cat.id) }}
-                      />
-                    </label>
-                    {mobileUrl && (
-                      <div className="mt-2">
-                        <img src={mobileUrl} alt="Preview mobile" className="w-full h-24 object-cover rounded-lg" />
-                        <button onClick={() => setMobileUrl('')} className="mt-1 text-xs text-red-400 hover:text-red-300">Remover</button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => salvarBanners(cat.id)}
-                    disabled={salvando || uploading !== null}
-                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    {salvando ? 'Salvando...' : 'Salvar Banners'}
-                  </button>
-                  <button
-                    onClick={cancelarEdicao}
-                    className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white text-sm font-bold rounded-lg transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                </div>
+            <label className="block w-full cursor-pointer">
+              <div className={
+                'w-full py-3 px-4 rounded-lg border-2 border-dashed text-center text-sm transition-colors ' +
+                (uploading === slot
+                  ? 'border-yellow-500 text-yellow-400 cursor-wait'
+                  : 'border-gray-500 text-gray-400 hover:border-yellow-500 hover:text-yellow-400')
+              }>
+                {uploading === slot ? 'Enviando...' : (banners[slot - 1] ? 'Trocar imagem' : 'Clique para enviar imagem')}
               </div>
-            )}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                disabled={uploading !== null}
+                onChange={e => { if (e.target.files?.[0]) uploadBanner(e.target.files[0], slot) }}
+              />
+            </label>
           </div>
         ))}
       </div>
@@ -225,10 +142,10 @@ function CategoriasContent() {
   )
 }
 
-export default function CategoriasPage() {
+export default function BannersCarrossel() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Carregando...</div>}>
-      <CategoriasContent />
+    <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center"><div className="w-10 h-10 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" /></div>}>
+      <BannersCarrosselContent />
     </Suspense>
   )
 }
