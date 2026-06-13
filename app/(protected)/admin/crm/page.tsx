@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { createClient } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 interface Cliente {
   id: string;
@@ -19,7 +19,6 @@ interface Cliente {
 export default function CRMPage() {
   const searchParams = useSearchParams();
   const slug = searchParams.get('slug');
-  const supabase = createClient();
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,7 +65,7 @@ export default function CRMPage() {
     };
 
     carregarClientes();
-  }, [slug, supabase]);
+  }, [slug]);
 
   if (loading) return <div className="p-6">Carregando...</div>;
   if (erro) return <div className="p-6 text-red-600">{erro}</div>;
