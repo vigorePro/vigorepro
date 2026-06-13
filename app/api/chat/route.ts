@@ -185,13 +185,14 @@ INSTRUCOES:
 7. Quando tiver todos os dados, confirme o pedido com o cliente antes de registrar
 8. Quando o cliente confirmar, responda EXATAMENTE no formato abaixo (sem nenhum texto antes ou depois):
 
-PEDIDO_CONFIRMADO:{"cliente_nome":"nome","itens":[{"nome":"item","preco":0.00,"quantidade":1,"categoria":"nome_da_categoria"}],"valor_total":0.00,"endereco":"endereco ou RETIRADA","tipo_entrega":"delivery ou retirada","observacoes":"opcional"}
+PEDIDO_CONFIRMADO:{"cliente_nome":"nome","itens":[{"nome":"item","preco":29.90,"quantidade":1,"categoria":"nome_da_categoria"}],"valor_total":29.90,"endereco":"endereco ou RETIRADA","tipo_entrega":"delivery ou retirada","observacoes":"opcional"}
 
 9. Nao invente produtos que nao estao no cardapio
 10. O campo "categoria" de cada item deve ser o nome exato da categoria do produto no cardapio
-11. Informacoes: ${estabelecimento.endereco}
-12. Pagamento: somente na entrega (dinheiro ou pix)
-13. Mantenha respostas curtas e naturais`
+11. O campo "preco" de cada item deve ser o preco EXATO do produto no cardapio (ex: se o cardapio diz R$ 63.90, use 63.90). O "valor_total" deve ser a soma de (preco * quantidade) de todos os itens
+12. Informacoes: ${estabelecimento.endereco}
+13. Pagamento: somente na entrega (dinheiro ou pix)
+14. Mantenha respostas curtas e naturais`
 
     const messages = [
       ...historico.map((h) => ({
