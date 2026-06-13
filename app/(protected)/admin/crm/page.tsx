@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
@@ -16,7 +16,7 @@ interface Cliente {
   categorias_preferidas: string[] | null;
 }
 
-export default function CRMPage() {
+function CRMContent() {
   const searchParams = useSearchParams();
   const slug = searchParams.get('slug');
 
@@ -147,5 +147,13 @@ export default function CRMPage() {
         <span>Faturamento acumulado: R$ {totalGasto.toFixed(2)}</span>
       </div>
     </div>
+  );
+}
+
+export default function CRMPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Carregando...</div>}>
+      <CRMContent />
+    </Suspense>
   );
 }
