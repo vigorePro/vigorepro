@@ -55,7 +55,7 @@ async function buscarCardapio(estabelecimento_id: string) {
     if (itens.length === 0) continue
     texto += `\n*${cat.nome}*\n`
     for (const item of itens) {
-      texto += `  - ${item.nome}: R$ ${item.preco.toFixed(2).replace('.', ',')}`
+      texto += ` - ${item.nome}: R$ ${item.preco.toFixed(2).replace('.', ',')}`
       if (item.descricao) texto += ` (${item.descricao})`
       texto += '\n'
     }
@@ -86,6 +86,47 @@ async function criarPedido(dados: {
 
   if (error) throw error
   return data?.numero_pedido
+}
+
+// CRM: registra/atualiza cliente, incrementa metricas e grava no historico
+async function registrarCRM(dados: {
+  estabelecimento_id: string
+  cliente_nome: string
+  cliente_telefone: string
+  itens: Array<{ nome: string; preco: number; quantidade: number }>
+  valor_total: number
+}) {
+  // Upsert do cliente (chave: restaurant_id + telefone)
+  const { data: cliente } = await supabase
+    .from('clientes')
+    .upsert(
+      {
+        restaurant_id: dados.estabelecimento_id,
+        telefone: dados.cliente_telefone,
+        nome: dados.cliente_nome,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'restaurant_id,telefone' }
+    )
+    .select('id')
+    .single()
+
+  if (!cliente) return
+
+  // Incrementa metricas (total de pedidos e valor gasto)
+  await supabase.rpc('incrementar_metricas_cliente', {
+    p_cliente_id: cliente.id,
+    p_valor: dados.valor_total,
+  })
+
+  // Grava no historico de pedidos do CRM
+  await supabase.from('pedidos_historico').insert({
+    cliente_id: cliente.id,
+    restaurant_id: dados.estabelecimento_id,
+    items: dados.itens,
+    valor_total: dados.valor_total,
+    status: 'criado',
+  })
 }
 
 export async function POST(req: NextRequest) {
@@ -173,6 +214,19 @@ PEDIDO_CONFIRMADO:{"cliente_nome":"nome","itens":[{"nome":"item","preco":0.00,"q
           tipo_entrega: dados.tipo_entrega,
           observacoes: dados.observacoes || '',
         })
+
+        // CRM (nao bloqueia o fluxo do pedido em caso de erro)
+        try {
+          await registrarCRM({
+            estabelecimento_id: estabelecimento.id,
+            cliente_nome: dados.cliente_nome,
+            cliente_telefone: sessionId,
+            itens: dados.itens,
+            valor_total: dados.valor_total,
+          })
+        } catch (crmErr) {
+          console.error('Erro ao registrar CRM:', crmErr)
+        }
 
         const mensagemFinal = `Pedido #${numeroPedido} registrado com sucesso! Voce pode acompanhar pelo site. Obrigado!`
         await salvarMensagem(sessionId, estabelecimento.id, 'assistant', mensagemFinal)
