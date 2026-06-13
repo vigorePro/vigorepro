@@ -87,7 +87,7 @@ export async function registrarCRM(dados: DadosCRM): Promise<void> {
 
   // Analisa preferencias de categorias e produtos e atualiza o cliente
   try {
-    await analisarPreferenciasCliente(dados.estabelecimento_id, cliente)
+    await analisarPreferenciasCliente(dados.estabelecimento_id, String(cliente.id))
   } catch (prefErr) {
     console.error('Erro ao analisar preferencias do cliente:', prefErr)
   }
