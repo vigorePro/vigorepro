@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
+import { analisarPreferenciasCliente } from '@/lib/crm-analytics'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -68,7 +69,7 @@ async function criarPedido(dados: {
   estabelecimento_id: string
   cliente_nome: string
   cliente_telefone: string
-  itens: Array<{ nome: string; preco: number; quantidade: number }>
+  itens: Array<{ nome: string; preco: number; quantidade: number; categoria?: string }>
   valor_total: number
   endereco: string
   tipo_entrega: string
@@ -88,12 +89,12 @@ async function criarPedido(dados: {
   return data?.numero_pedido
 }
 
-// CRM: registra/atualiza cliente, incrementa metricas e grava no historico
+// CRM: registra/atualiza cliente, incrementa metricas, grava historico e analisa preferencias
 async function registrarCRM(dados: {
   estabelecimento_id: string
   cliente_nome: string
   cliente_telefone: string
-  itens: Array<{ nome: string; preco: number; quantidade: number }>
+  itens: Array<{ nome: string; preco: number; quantidade: number; categoria?: string }>
   valor_total: number
 }) {
   // Upsert do cliente (chave: restaurant_id + telefone)
@@ -130,6 +131,13 @@ async function registrarCRM(dados: {
     valor_total: dados.valor_total,
     status: 'criado',
   })
+
+  // Analisa preferencias de categorias e produtos e atualiza o cliente
+  try {
+    await analisarPreferenciasCliente(dados.estabelecimento_id, cliente.id)
+  } catch (prefErr) {
+    console.error('Erro ao analisar preferencias do cliente:', prefErr)
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -177,12 +185,13 @@ INSTRUCOES:
 7. Quando tiver todos os dados, confirme o pedido com o cliente antes de registrar
 8. Quando o cliente confirmar, responda EXATAMENTE no formato abaixo (sem nenhum texto antes ou depois):
 
-PEDIDO_CONFIRMADO:{"cliente_nome":"nome","itens":[{"nome":"item","preco":0.00,"quantidade":1}],"valor_total":0.00,"endereco":"endereco ou RETIRADA","tipo_entrega":"delivery ou retirada","observacoes":"opcional"}
+PEDIDO_CONFIRMADO:{"cliente_nome":"nome","itens":[{"nome":"item","preco":0.00,"quantidade":1,"categoria":"nome_da_categoria"}],"valor_total":0.00,"endereco":"endereco ou RETIRADA","tipo_entrega":"delivery ou retirada","observacoes":"opcional"}
 
 9. Nao invente produtos que nao estao no cardapio
-10. Informacoes: ${estabelecimento.endereco}
-11. Pagamento: somente na entrega (dinheiro ou pix)
-12. Mantenha respostas curtas e naturais`
+10. O campo "categoria" de cada item deve ser o nome exato da categoria do produto no cardapio
+11. Informacoes: ${estabelecimento.endereco}
+12. Pagamento: somente na entrega (dinheiro ou pix)
+13. Mantenha respostas curtas e naturais`
 
     const messages = [
       ...historico.map((h) => ({
