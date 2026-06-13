@@ -97,7 +97,7 @@ async function registrarCRM(dados: {
   valor_total: number
 }) {
   // Upsert do cliente (chave: restaurant_id + telefone)
-  const { data: cliente } = await supabase
+  const { data: cliente, error: cliErr } = await supabase
     .from('clientes')
     .upsert(
       {
@@ -111,7 +111,10 @@ async function registrarCRM(dados: {
     .select('id')
     .single()
 
-  if (!cliente) return
+  if (cliErr || !cliente) {
+    console.error('Erro ao registrar CRM (upsert cliente):', cliErr)
+    return
+  }
 
   // Incrementa metricas (total de pedidos e valor gasto)
   await supabase.rpc('incrementar_metricas_cliente', {
