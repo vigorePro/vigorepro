@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
-
+import { criarPedido, registrarCRM } from '@/lib/crm'
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -91,75 +91,6 @@ async function buscarCardapio(estabelecimento_id: string) {
 }
 
 // Cria pedido no Supabase
-async function criarPedido(dados: {
-  estabelecimento_id: string
-  cliente_nome: string
-  cliente_telefone: string
-  itens: Array<{ nome: string; preco: number; quantidade: number }>
-  valor_total: number
-  endereco: string
-  tipo_entrega: string
-  observacoes?: string
-}) {
-  const { data, error } = await supabase
-    .from('pedidos')
-    .insert({
-      ...dados,
-      status: 'em_producao',
-      criado_em: new Date().toISOString(),
-    })
-    .select('numero_pedido')
-    .single()
-
-  if (error) throw error
-  return data?.numero_pedido
-}
-
-// CRM: registra/atualiza cliente, incrementa metricas e grava no historico
-async function registrarCRM(dados: {
-  estabelecimento_id: string
-  cliente_nome: string
-  cliente_telefone: string
-  itens: Array<{ nome: string; preco: number; quantidade: number }>
-  valor_total: number
-}) {
-  // Upsert do cliente (chave: restaurant_id + telefone)
-  const { data: cliente, error: upsertErr } = await supabase
-    .from('clientes')
-    .upsert(
-      {
-        restaurant_id: dados.estabelecimento_id,
-        telefone: dados.cliente_telefone,
-        nome: dados.cliente_nome,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'restaurant_id,telefone' }
-    )
-    .select('id')
-    .single()
-
-  if (upsertErr || !cliente) {
-    console.error('Erro no upsert cliente (CRM WhatsApp):', upsertErr)
-    return
-  }
-
-  // Incrementa metricas (total de pedidos e valor gasto)
-  await supabase.rpc('incrementar_metricas_cliente', {
-    p_cliente_id: cliente.id,
-    p_valor: dados.valor_total,
-  })
-
-  // Grava no historico de pedidos do CRM
-  await supabase.from('pedidos_historico').insert({
-    cliente_id: cliente.id,
-    restaurant_id: dados.estabelecimento_id,
-    items: dados.itens,
-    valor_total: dados.valor_total,
-    status: 'criado',
-  })
-}
-
-// Processa mensagem com Claude AI
 async function processarComIA(
   mensagem: string,
   historico: Array<{ role: string; content: string }>,
@@ -184,12 +115,14 @@ INSTRUCOES:
 7. Quando tiver todos os dados, confirme o pedido com o cliente antes de registrar
 8. Quando o cliente confirmar, responda EXATAMENTE no formato JSON abaixo (sem nenhum texto antes ou depois):
 
-PEDIDO_CONFIRMADO:{"cliente_nome":"nome","itens":[{"nome":"item","preco":0.00,"quantidade":1}],"valor_total":0.00,"endereco":"endereco ou RETIRADA","tipo_entrega":"delivery ou retirada","observacoes":"opcional"}
+PEDIDO_CONFIRMADO:{"cliente_nome":"nome","itens":[{"nome":"item","preco":29.90,"quantidade":1,"categoria":"nome_da_categoria"}],"valor_total":29.90,"endereco":"endereco ou RETIRADA","tipo_entrega":"delivery ou retirada","observacoes":"opcional"}
 
 9. Nao invente produtos que nao estao no cardapio
-10. Informacoes do estabelecimento: ${estabelecimento.endereco}
-11. Formas de pagamento: somente na entrega (dinheiro ou pix)
-12. Mantenha respostas curtas e naturais para WhatsApp`
+10. O campo "categoria" de cada item deve ser o nome exato da categoria do produto no cardapio
+11. O campo "preco" de cada item deve ser o preco EXATO do produto no cardapio. O "valor_total" deve ser a soma de (preco * quantidade) de todos os itens
+12. Informacoes do estabelecimento: ${estabelecimento.endereco}
+13. Formas de pagamento: somente na entrega (dinheiro ou pix)
+14. Mantenha respostas curtas e naturais para WhatsApp`
 
   const messages = [
     ...historico.map((h) => ({
