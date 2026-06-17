@@ -17,7 +17,7 @@ const WHATSAPP_VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN!
 
 // Envia mensagem pelo WhatsApp via Meta Cloud API
 async function enviarMensagem(telefone: string, texto: string) {
-  const url = `https://graph.facebook.com/v25.0/${WHATSAPPh_PHONE_NUMBER_ID}/messages`
+  const url = `https://graph.facebook.com/v25.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`
   const res = await fetch(url, {
     method: 'POST',
     headers: {
