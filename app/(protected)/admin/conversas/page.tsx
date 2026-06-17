@@ -55,6 +55,13 @@ function gerarCodigoSimples(): string {
   return num + letra;
 }
 
+function nomeExibicao(contato: Contato): string {
+  if (contato.nome) return contato.nome;
+  if (contato.codigo) return 'Cliente #' + contato.codigo;
+  if (contato.telefone.startsWith('chat_')) return 'Sem nome';
+  return contato.telefone;
+}
+
 function ConversasContent() {
   const searchParams = useSearchParams();
   const slug = searchParams.get('slug');
@@ -238,11 +245,18 @@ function ConversasContent() {
               className={"w-full text-left px-4 py-3 border-b hover:bg-gray-50 transition-colors " + (contatoSelecionado === contato.telefone ? 'bg-green-50 border-l-4 border-l-green-500' : '')}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                  {(contato.nome || contato.telefone).charAt(0).toUpperCase()}
+                  {nomeExibicao(contato).charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-baseline">
-                    <span className="font-medium text-sm truncate">{contato.nome || contato.telefone}</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="font-medium text-sm truncate">
+                        {contato.nome || (contato.telefone.startsWith('chat_') ? 'Sem nome' : contato.telefone)}
+                      </span>
+                      {contato.codigo && (
+                        <span className="text-xs font-mono text-gray-400 flex-shrink-0">#{contato.codigo}</span>
+                      )}
+                    </div>
                     <span className="text-xs text-gray-400 ml-2 flex-shrink-0">{formatarData(contato.ultima_interacao)}</span>
                   </div>
                   <p className="text-xs text-gray-500 truncate mt-0.5">{contato.ultima_mensagem}</p>
@@ -264,10 +278,10 @@ function ConversasContent() {
           <>
             <div className="px-4 py-3 bg-white border-b flex items-center gap-3 shadow-sm">
               <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-bold flex-shrink-0">
-                {(contatoAtual?.nome || contatoAtual?.telefone || '?').charAt(0).toUpperCase()}
+                {(contatoAtual ? nomeExibicao(contatoAtual) : '?').charAt(0).toUpperCase()}
               </div>
               <div className="flex-1">
-                <p className="font-semibold">{contatoAtual?.nome || 'Sem nome'}</p>
+                <p className="font-semibold">{contatoAtual ? nomeExibicao(contatoAtual) : 'Sem nome'}</p>
                 <p className="text-xs text-gray-500">
                   {contatoAtual?.codigo && (
                     <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-600 mr-1">#{contatoAtual.codigo}</span>
