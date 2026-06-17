@@ -122,7 +122,8 @@ PEDIDO_CONFIRMADO:{"cliente_nome":"nome","itens":[{"nome":"item","preco":29.90,"
 11. O campo "preco" de cada item deve ser o preco EXATO do produto no cardapio. O "valor_total" deve ser a soma de (preco * quantidade) de todos os itens
 12. Informacoes do estabelecimento: ${estabelecimento.endereco}
 13. Formas de pagamento: somente na entrega (dinheiro ou pix)
-14. Mantenha respostas curtas e naturais para WhatsApp`
+14. Quando o cliente pedir para ver o cardapio ou quiser conhecer os produtos, envie o link: https://dolcedolce.vigorepro.com.br/cardapio?slug=dolcedolce
+15. Mantenha respostas curtas e naturais para WhatsApp`
 
   const messages = [
     ...historico.map((h) => ({
