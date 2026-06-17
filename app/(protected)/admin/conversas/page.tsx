@@ -37,7 +37,9 @@ interface Pedido {
 }
 
 interface PerfilCliente {
+  clienteId: string | null;
   nome: string | null;
+  telefone: string;
   total_pedidos: number;
   valor_total_gasto: number;
   ticket_medio: number;
@@ -59,26 +61,23 @@ function ConversasContent() {
   const [loadingMensagens, setLoadingMensagens] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [abaAtiva, setAbaAtiva] = useState<'conversa' | 'perfil'>('conversa');
+
+  // Estados de edição
+  const [editando, setEditando] = useState(false);
+  const [editNome, setEditNome] = useState('');
+  const [editTelefone, setEditTelefone] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const [mensagemSucesso, setMensagemSucesso] = useState('');
+
   const mensagensEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!slug) {
-      setErro('Slug nao informado na URL (?slug=...).');
-      setLoading(false);
-      return;
-    }
+    if (!slug) { setErro('Slug nao informado.'); setLoading(false); return; }
     const init = async () => {
       setLoading(true);
       const { data: est, error: estErr } = await supabase
-        .from('estabelecimentos')
-        .select('id')
-        .eq('slug', slug)
-        .single();
-      if (estErr || !est) {
-        setErro('Estabelecimento nao encontrado.');
-        setLoading(false);
-        return;
-      }
+        .from('estabelecimentos').select('id').eq('slug', slug).single();
+      if (estErr || !est) { setErro('Estabelecimento nao encontrado.'); setLoading(false); return; }
       setEstabelecimentoId(est.id);
       await carregarContatos(est.id);
       setLoading(false);
@@ -92,20 +91,14 @@ function ConversasContent() {
 
   const carregarContatos = async (estId: string) => {
     const { data, error } = await supabase
-      .from('conversas_ia')
-      .select('telefone, content, role, criado_em')
-      .eq('estabelecimento_id', estId)
-      .order('criado_em', { ascending: false });
+      .from('conversas_ia').select('telefone, content, role, criado_em')
+      .eq('estabelecimento_id', estId).order('criado_em', { ascending: false });
     if (error || !data) return;
     const mapa = new Map<string, Contato>();
     for (const msg of data) {
       if (!mapa.has(msg.telefone)) {
         const { data: cliente } = await supabase
-          .from('clientes')
-          .select('nome')
-          .eq('restaurant_id', estId)
-          .eq('telefone', msg.telefone)
-          .maybeSingle();
+          .from('clientes').select('nome').eq('restaurant_id', estId).eq('telefone', msg.telefone).maybeSingle();
         mapa.set(msg.telefone, {
           telefone: msg.telefone,
           nome: cliente?.nome || null,
@@ -125,63 +118,103 @@ function ConversasContent() {
     setContatoSelecionado(telefone);
     setLoadingMensagens(true);
     setPerfil(null);
+    setEditando(false);
     setAbaAtiva('conversa');
 
-    // Busca mensagens e perfil em paralelo
     const [{ data: msgs }, { data: clienteData }] = await Promise.all([
-      supabase
-        .from('conversas_ia')
-        .select('id, role, content, criado_em')
-        .eq('estabelecimento_id', estabelecimentoId)
-        .eq('telefone', telefone)
+      supabase.from('conversas_ia').select('id, role, content, criado_em')
+        .eq('estabelecimento_id', estabelecimentoId).eq('telefone', telefone)
         .order('criado_em', { ascending: true }),
-      supabase
-        .from('clientes')
-        .select('nome, total_pedidos, valor_total_gasto, ticket_medio, produtos_preferidos')
-        .eq('restaurant_id', estabelecimentoId)
-        .eq('telefone', telefone)
-        .maybeSingle(),
+      supabase.from('clientes').select('id, nome, total_pedidos, valor_total_gasto, ticket_medio, produtos_preferidos')
+        .eq('restaurant_id', estabelecimentoId).eq('telefone', telefone).maybeSingle(),
     ]);
 
     if (msgs) setMensagens(msgs);
 
-    // Busca pedidos do cliente
     const { data: pedidosData } = await supabase
-      .from('pedidos')
-      .select('id, numero_pedido, criado_em, valor_total, tipo_entrega, status, itens')
-      .eq('estabelecimento_id', estabelecimentoId)
-      .eq('cliente_telefone', telefone)
-      .order('criado_em', { ascending: false })
-      .limit(10);
+      .from('pedidos').select('id, numero_pedido, criado_em, valor_total, tipo_entrega, status, itens')
+      .eq('estabelecimento_id', estabelecimentoId).eq('cliente_telefone', telefone)
+      .order('criado_em', { ascending: false }).limit(10);
 
-    setPerfil({
+    const perfilAtual = {
+      clienteId: clienteData?.id || null,
       nome: clienteData?.nome || null,
+      telefone,
       total_pedidos: clienteData?.total_pedidos || 0,
       valor_total_gasto: clienteData?.valor_total_gasto || 0,
       ticket_medio: clienteData?.ticket_medio || 0,
       produtos_preferidos: clienteData?.produtos_preferidos || [],
       pedidos: pedidosData || [],
-    });
+    };
 
+    setPerfil(perfilAtual);
     setLoadingMensagens(false);
   };
 
-  const formatarHora = (iso: string) => {
-    return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const abrirEdicao = () => {
+    if (!perfil) return;
+    setEditNome(perfil.nome || '');
+    setEditTelefone(perfil.telefone);
+    setEditando(true);
+    setMensagemSucesso('');
   };
+
+  const salvarEdicao = async () => {
+    if (!perfil || !estabelecimentoId) return;
+    setSalvando(true);
+    setMensagemSucesso('');
+
+    const novoNome = editNome.trim() || null;
+    const novoTelefone = editTelefone.trim();
+
+    if (!novoTelefone) {
+      setSalvando(false);
+      return;
+    }
+
+    // Atualiza na tabela clientes se o cliente existir
+    if (perfil.clienteId) {
+      await supabase.from('clientes')
+        .update({ nome: novoNome, telefone: novoTelefone })
+        .eq('id', perfil.clienteId);
+    }
+
+    // Atualiza na tabela conversas_ia (telefone como ID de sessão)
+    if (novoTelefone !== perfil.telefone) {
+      await supabase.from('conversas_ia')
+        .update({ telefone: novoTelefone })
+        .eq('estabelecimento_id', estabelecimentoId)
+        .eq('telefone', perfil.telefone);
+    }
+
+    // Atualiza estado local
+    setPerfil({ ...perfil, nome: novoNome, telefone: novoTelefone });
+    setContatos((prev) => prev.map((c) =>
+      c.telefone === perfil.telefone
+        ? { ...c, nome: novoNome, telefone: novoTelefone }
+        : c
+    ));
+    setContatoSelecionado(novoTelefone);
+
+    setSalvando(false);
+    setEditando(false);
+    setMensagemSucesso('Dados salvos com sucesso!');
+    setTimeout(() => setMensagemSucesso(''), 3000);
+  };
+
+  const formatarHora = (iso: string) =>
+    new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
   const formatarData = (iso: string) => {
     const d = new Date(iso);
-    const hoje = new Date();
-    const diff = Math.floor((hoje.getTime() - d.getTime()) / 86400000);
+    const diff = Math.floor((new Date().getTime() - d.getTime()) / 86400000);
     if (diff === 0) return formatarHora(iso);
     if (diff === 1) return 'Ontem';
     return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
   };
 
-  const formatarDataCompleta = (iso: string) => {
-    return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  };
+  const formatarDataCompleta = (iso: string) =>
+    new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   const statusCor: Record<string, string> = {
     confirmado: 'bg-blue-100 text-blue-700',
@@ -194,8 +227,8 @@ function ConversasContent() {
 
   const contatoAtual = contatos.find((c) => c.telefone === contatoSelecionado);
   const contatosFiltrados = contatos.filter((c) => {
-    const termo = busca.toLowerCase();
-    return (c.nome?.toLowerCase().includes(termo) ?? false) || c.telefone.includes(busca);
+    const t = busca.toLowerCase();
+    return (c.nome?.toLowerCase().includes(t) ?? false) || c.telefone.includes(busca);
   });
 
   if (loading) return <div className="flex h-screen items-center justify-center text-gray-500">Carregando...</div>;
@@ -203,52 +236,41 @@ function ConversasContent() {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      {/* Coluna esquerda - Lista de contatos */}
+      {/* Lista de contatos */}
       <div className="w-80 bg-white border-r flex flex-col flex-shrink-0">
         <div className="p-4 bg-green-600 text-white">
           <h1 className="text-xl font-bold">Conversas</h1>
           <p className="text-sm text-green-100">{contatos.length} contatos</p>
         </div>
         <div className="p-3 border-b">
-          <input
-            type="text"
-            placeholder="Buscar contato..."
-            value={busca}
+          <input type="text" placeholder="Buscar contato..." value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-100 rounded-full text-sm outline-none"
-          />
+            className="w-full px-3 py-2 bg-gray-100 rounded-full text-sm outline-none" />
         </div>
         <div className="flex-1 overflow-y-auto">
           {contatosFiltrados.length === 0 ? (
             <div className="p-4 text-center text-gray-400 text-sm">Nenhuma conversa encontrada</div>
-          ) : (
-            contatosFiltrados.map((contato) => (
-              <button
-                key={contato.telefone}
-                onClick={() => abrirConversa(contato.telefone)}
-                className={`w-full text-left px-4 py-3 border-b hover:bg-gray-50 transition-colors ${
-                  contatoSelecionado === contato.telefone ? 'bg-green-50 border-l-4 border-l-green-500' : ''
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                    {(contato.nome || contato.telefone).charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-baseline">
-                      <span className="font-medium text-sm truncate">{contato.nome || contato.telefone}</span>
-                      <span className="text-xs text-gray-400 ml-2 flex-shrink-0">{formatarData(contato.ultima_interacao)}</span>
-                    </div>
-                    <p className="text-xs text-gray-500 truncate mt-0.5">{contato.ultima_mensagem}</p>
-                  </div>
+          ) : contatosFiltrados.map((contato) => (
+            <button key={contato.telefone} onClick={() => abrirConversa(contato.telefone)}
+              className={`w-full text-left px-4 py-3 border-b hover:bg-gray-50 transition-colors ${contatoSelecionado === contato.telefone ? 'bg-green-50 border-l-4 border-l-green-500' : ''}`}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                  {(contato.nome || contato.telefone).charAt(0).toUpperCase()}
                 </div>
-              </button>
-            ))
-          )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-baseline">
+                    <span className="font-medium text-sm truncate">{contato.nome || contato.telefone}</span>
+                    <span className="text-xs text-gray-400 ml-2 flex-shrink-0">{formatarData(contato.ultima_interacao)}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 truncate mt-0.5">{contato.ultima_mensagem}</p>
+                </div>
+              </div>
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Coluna central - Conversa */}
+      {/* Área principal */}
       <div className="flex-1 flex flex-col min-w-0">
         {!contatoSelecionado ? (
           <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
@@ -267,18 +289,13 @@ function ConversasContent() {
                 <p className="font-semibold">{contatoAtual?.nome || 'Sem nome'}</p>
                 <p className="text-xs text-gray-500">{contatoAtual?.telefone} · {contatoAtual?.total_mensagens} mensagens</p>
               </div>
-              {/* Abas */}
               <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-                <button
-                  onClick={() => setAbaAtiva('conversa')}
-                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${abaAtiva === 'conversa' ? 'bg-white shadow text-green-700' : 'text-gray-500 hover:text-gray-700'}`}
-                >
+                <button onClick={() => setAbaAtiva('conversa')}
+                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${abaAtiva === 'conversa' ? 'bg-white shadow text-green-700' : 'text-gray-500 hover:text-gray-700'}`}>
                   💬 Conversa
                 </button>
-                <button
-                  onClick={() => setAbaAtiva('perfil')}
-                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${abaAtiva === 'perfil' ? 'bg-white shadow text-green-700' : 'text-gray-500 hover:text-gray-700'}`}
-                >
+                <button onClick={() => setAbaAtiva('perfil')}
+                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${abaAtiva === 'perfil' ? 'bg-white shadow text-green-700' : 'text-gray-500 hover:text-gray-700'}`}>
                   👤 Perfil
                 </button>
               </div>
@@ -292,22 +309,14 @@ function ConversasContent() {
                     <div className="text-center text-gray-400 pt-10">Carregando mensagens...</div>
                   ) : mensagens.length === 0 ? (
                     <div className="text-center text-gray-400 pt-10">Nenhuma mensagem</div>
-                  ) : (
-                    mensagens.map((msg) => (
-                      <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-xs lg:max-w-md px-3 py-2 rounded-lg text-sm shadow-sm ${
-                          msg.role === 'user'
-                            ? 'bg-green-500 text-white rounded-br-none'
-                            : 'bg-white text-gray-800 rounded-bl-none'
-                        }`}>
-                          <p className="whitespace-pre-wrap">{msg.content}</p>
-                          <p className={`text-xs mt-1 text-right ${msg.role === 'user' ? 'text-green-100' : 'text-gray-400'}`}>
-                            {formatarHora(msg.criado_em)}
-                          </p>
-                        </div>
+                  ) : mensagens.map((msg) => (
+                    <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-xs lg:max-w-md px-3 py-2 rounded-lg text-sm shadow-sm ${msg.role === 'user' ? 'bg-green-500 text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}>
+                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                        <p className={`text-xs mt-1 text-right ${msg.role === 'user' ? 'text-green-100' : 'text-gray-400'}`}>{formatarHora(msg.criado_em)}</p>
                       </div>
-                    ))
-                  )}
+                    </div>
+                  ))}
                   <div ref={mensagensEndRef} />
                 </div>
                 <div className="px-4 py-3 bg-white border-t text-center text-xs text-gray-400">
@@ -324,7 +333,67 @@ function ConversasContent() {
                 ) : (
                   <div className="max-w-2xl mx-auto space-y-4">
 
-                    {/* Cards de métricas */}
+                    {/* Card de dados do contato */}
+                    <div className="bg-white rounded-xl p-4 shadow-sm">
+                      <div className="flex justify-between items-center mb-3">
+                        <h3 className="font-semibold text-gray-700">📋 Dados do contato</h3>
+                        {!editando && (
+                          <button onClick={abrirEdicao}
+                            className="flex items-center gap-1 text-sm text-green-600 hover:text-green-700 font-medium px-3 py-1 border border-green-600 rounded-lg hover:bg-green-50 transition-colors">
+                            ✏️ Editar
+                          </button>
+                        )}
+                      </div>
+
+                      {mensagemSucesso && (
+                        <div className="mb-3 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+                          ✅ {mensagemSucesso}
+                        </div>
+                      )}
+
+                      {!editando ? (
+                        // Modo visualização
+                        <div className="space-y-2">
+                          <div className="flex gap-2">
+                            <span className="text-sm text-gray-400 w-20">Nome</span>
+                            <span className="text-sm text-gray-700 font-medium">{perfil.nome || <span className="text-gray-400 italic">Sem nome</span>}</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <span className="text-sm text-gray-400 w-20">Telefone</span>
+                            <span className="text-sm text-gray-700 font-medium">{perfil.telefone}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        // Modo edição
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Nome</label>
+                            <input type="text" value={editNome} onChange={(e) => setEditNome(e.target.value)}
+                              placeholder="Nome do cliente"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Telefone / ID de sessão</label>
+                            <input type="text" value={editTelefone} onChange={(e) => setEditTelefone(e.target.value)}
+                              placeholder="Telefone ou ID"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+                            <p className="text-xs text-gray-400 mt-1">⚠️ Alterar o telefone desvincula o histórico de conversa anterior</p>
+                          </div>
+                          <div className="flex gap-2 pt-1">
+                            <button onClick={salvarEdicao} disabled={salvando}
+                              className="flex-1 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors">
+                              {salvando ? 'Salvando...' : '💾 Salvar'}
+                            </button>
+                            <button onClick={() => setEditando(false)} disabled={salvando}
+                              className="flex-1 py-2 bg-gray-100 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors">
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Métricas */}
                     <div className="grid grid-cols-3 gap-3">
                       <div className="bg-white rounded-xl p-4 text-center shadow-sm">
                         <p className="text-2xl font-bold text-green-600">{perfil.total_pedidos}</p>
@@ -349,11 +418,7 @@ function ConversasContent() {
                         <div className="space-y-2">
                           {perfil.produtos_preferidos.slice(0, 3).map((produto, i) => (
                             <div key={i} className="flex items-center gap-3">
-                              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
-                                i === 0 ? 'bg-yellow-400 text-white' :
-                                i === 1 ? 'bg-gray-300 text-gray-700' :
-                                'bg-orange-300 text-white'
-                              }`}>
+                              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${i === 0 ? 'bg-yellow-400 text-white' : i === 1 ? 'bg-gray-300 text-gray-700' : 'bg-orange-300 text-white'}`}>
                                 {i + 1}
                               </div>
                               <span className="text-sm text-gray-700">{produto}</span>
