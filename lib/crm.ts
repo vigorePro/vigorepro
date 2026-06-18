@@ -38,7 +38,7 @@ export async function criarPedido(dados: DadosPedido): Promise<number> {
     .from('pedidos')
     .insert({
       ...dados,
-      status: 'em_producao',
+      status: 'aguardando',
       criado_em: new Date().toISOString(),
     })
     .select('numero_pedido')
