@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation'
 import {
     House, Wallet, Bike, UtensilsCrossed, ShoppingCart, ChefHat,
     ChartColumn, Smartphone, CreditCard, MessageCircle, BarChart2,
-    BookOpen, Globe, Users, HandCoins, Lightbulb, Link2,
+    BookOpen, Globe, Users, HandCoins, Lightbulb, Link2
     BookOpenText, Headphones, LogOut, Settings, Package, DollarSign,
     Megaphone, Receipt, ExternalLink, Star, Tablet
 } from 'lucide-react'
@@ -73,7 +73,7 @@ const NAV_GROUPS = [
 function SlugReader({ children }: { children: (slug: string) => React.ReactNode }) {
     const searchParams = useSearchParams()
     const slug = searchParams.get('slug') || ''
-    return <>{children(slug)}</>>
+    return <>{children(slug)}</>
       }
 
 function Sidebar({ slug }: { slug: string }) {
