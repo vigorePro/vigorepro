@@ -74,7 +74,6 @@ function PDVContent() {
       .from('produtos')
       .select('id, categoria_id, nome, descricao, preco, imagem_url, disponivel')
       .eq('estabelecimento_id', estab.id)
-      .eq('disponivel', true)
       .order('nome')
 
     setCategorias(cats || [])
