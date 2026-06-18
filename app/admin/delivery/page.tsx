@@ -1,27 +1,20 @@
 'use client'
 
-import { Suspense, useEffect, useState, useCallback } from 'react'
+import { Suspense, useEffect, useState, useCallback, useRef } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useSearchParams } from 'next/navigation'
-import { Clock, RefreshCw, Search, ChevronRight, Phone, MapPin, ShoppingBag, X } from 'lucide-react'
+import { Clock, RefreshCw, ShoppingBag, User, MapPin, Phone, MoreVertical, Maximize2, ChevronRight } from 'lucide-react'
 
 type StatusPedido = 'aguardando' | 'em_preparo' | 'pronto' | 'entregue' | 'cancelado'
-
-interface ItemPedido {
-  id: string
-  nome: string
-  quantidade: number
-  preco: number
-}
 
 interface Pedido {
   id: string
   numero_pedido: number
   cliente_nome: string
-  cliente_telefone: string
-  itens: ItemPedido[]
+  cliente_telefone: string | null
+  itens: { nome: string; quantidade: number; preco: number }[]
   valor_total: number
-  endereco: string
+  endereco: string | null
   status: StatusPedido
   criado_em: string
   produzido_em: string | null
@@ -37,101 +30,100 @@ interface Pedido {
 const COLUNAS: {
   status: StatusPedido
   label: string
-  cor: string
   bg: string
+  count_bg: string
   proximo: StatusPedido | null
   btnLabel: string
 }[] = [
-  { status: 'aguardando', label: 'Aguardando', cor: 'text-purple-700', bg: 'bg-purple-100 border-purple-300', proximo: 'em_preparo', btnLabel: 'Iniciar Preparo' },
-  { status: 'em_preparo', label: 'Em Preparo', cor: 'text-green-700', bg: 'bg-green-100 border-green-300', proximo: 'pronto', btnLabel: 'Marcar Pronto' },
-  { status: 'pronto', label: 'Pronto / Saiu', cor: 'text-yellow-700', bg: 'bg-yellow-100 border-yellow-300', proximo: 'entregue', btnLabel: 'Confirmar Entrega' },
-  { status: 'entregue', label: 'Entregue', cor: 'text-blue-700', bg: 'bg-blue-100 border-blue-300', proximo: null, btnLabel: '' },
-  { status: 'cancelado', label: 'Cancelado', cor: 'text-red-700', bg: 'bg-red-100 border-red-300', proximo: null, btnLabel: '' },
+  { status: 'aguardando', label: 'Aguardando', bg: 'bg-[rgb(192,130,255)]', count_bg: 'bg-purple-200/60', proximo: 'em_preparo', btnLabel: 'Iniciar Preparo' },
+  { status: 'em_preparo', label: 'Em Preparo', bg: 'bg-[rgb(183,255,183)]', count_bg: 'bg-green-200/60', proximo: 'pronto', btnLabel: 'Marcar Pronto' },
+  { status: 'pronto', label: 'Pronto / Saiu', bg: 'bg-[rgb(255,255,202)]', count_bg: 'bg-yellow-200/60', proximo: 'entregue', btnLabel: 'Confirmar Entrega' },
+  { status: 'entregue', label: 'Entregue', bg: 'bg-[rgb(81,81,255)] text-white', count_bg: 'bg-blue-400/30', proximo: null, btnLabel: '' },
+  { status: 'cancelado', label: 'Cancelado', bg: 'bg-[rgb(255,107,107)]', count_bg: 'bg-red-200/60', proximo: null, btnLabel: '' },
 ]
 
-function tempoDecorrido(iso: string): string {
-  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
+function formatarTempo(data: string): string {
+  const diff = Math.floor((Date.now() - new Date(data).getTime()) / 60000)
   if (diff < 1) return 'agora'
-  if (diff < 60) return diff + 'min'
-  return Math.floor(diff / 60) + 'h' + (diff % 60 > 0 ? (diff % 60) + 'min' : '')
+  if (diff < 60) return `${diff} min`
+  const h = Math.floor(diff / 60)
+  const m = diff % 60
+  return `${h}h${m > 0 ? ` ${m}min` : ''}`
 }
 
-function CardPedido({
-  pedido,
-  onAvancar,
-  onCancelar,
-}: {
-  pedido: Pedido
-  onAvancar: (id: string, novoStatus: StatusPedido) => void
-  onCancelar: (id: string) => void
-}) {
-  const coluna = COLUNAS.find((c) => c.status === pedido.status)!
-  const itensList = Array.isArray(pedido.itens) ? pedido.itens : []
+function formatarValor(v: number): string {
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function CardPedido({ pedido, onAvancar }: { pedido: Pedido; onAvancar: (id: string, status: StatusPedido) => void }) {
+  const coluna = COLUNAS.find(c => c.status === pedido.status)
+  const [tempo, setTempo] = useState(() => formatarTempo(pedido.criado_em))
+
+  useEffect(() => {
+    const t = setInterval(() => setTempo(formatarTempo(pedido.criado_em)), 30000)
+    return () => clearInterval(t)
+  }, [pedido.criado_em])
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between">
-        <span className="font-bold text-gray-800 text-sm">#{pedido.numero_pedido}</span>
-        <span className="text-xs text-gray-400 flex items-center gap-1">
-          <Clock size={11} />
-          {tempoDecorrido(pedido.criado_em)}
-        </span>
-      </div>
-      <div>
-        <p className="font-semibold text-gray-900 text-sm leading-tight">{pedido.cliente_nome}</p>
-        <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-          <Phone size={10} />
-          {pedido.cliente_telefone}
-        </p>
-      </div>
-      <div className="text-xs text-gray-600 border-t pt-2">
-        <p className="font-medium text-gray-700 mb-1 flex items-center gap-1">
-          <ShoppingBag size={11} />
-          {itensList.length} {itensList.length === 1 ? 'item' : 'itens'}
-        </p>
-        {itensList.slice(0, 3).map((item, i) => (
-          <p key={i} className="truncate">
-            {item.quantidade}x {item.nome}
+    <div className="rounded-lg border bg-card text-card-foreground shadow transition-shadow relative cursor-pointer hover:shadow-md">
+      <div className="p-2 space-y-1.5">
+        {/* Linha topo: número + menu */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {pedido.tipo_entrega === 'delivery' ? (
+                <MapPin size={13} className="text-muted-foreground" />
+              ) : (
+                <ShoppingBag size={13} className="text-muted-foreground" />
+              )}
+            </div>
+            <span className="font-bold text-sm truncate min-w-0">#{pedido.numero_pedido}</span>
+          </div>
+          <button className="inline-flex items-center justify-center rounded-full text-sm font-medium h-6 w-6 hover:bg-accent hover:text-accent-foreground">
+            <MoreVertical size={14} />
+          </button>
+        </div>
+
+        {/* Info do pedido */}
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-1.5">
+            <p className="font-semibold text-sm truncate min-w-0 flex-shrink">
+              {pedido.tipo_entrega === 'delivery' ? 'Delivery' : 'Retirada'}
+            </p>
+          </div>
+          {pedido.cliente_nome && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <User size={10} />
+              <span className="truncate">{pedido.cliente_nome}</span>
+            </div>
+          )}
+          {pedido.endereco && pedido.tipo_entrega === 'delivery' && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <MapPin size={10} />
+              <span className="truncate">{pedido.endereco}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Rodapé: tempo + valor */}
+        <div className="flex items-center justify-between pt-0.5">
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Clock size={10} />
+            {tempo}
+          </span>
+          <p className="text-base font-bold text-foreground whitespace-nowrap">
+            {formatarValor(pedido.valor_total)}
           </p>
-        ))}
-        {itensList.length > 3 && <p className="text-gray-400">+{itensList.length - 3} mais...</p>}
-      </div>
-      {pedido.tipo_entrega === 'delivery' && pedido.endereco && (
-        <p className="text-xs text-gray-500 flex items-start gap-1 border-t pt-2">
-          <MapPin size={11} className="mt-0.5 flex-shrink-0" />
-          <span className="truncate">{pedido.endereco}</span>
-        </p>
-      )}
-      {pedido.observacoes && (
-        <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1 italic">
-          {pedido.observacoes}
-        </p>
-      )}
-      <div className="flex items-center justify-between border-t pt-2">
-        <span className="font-bold text-green-700 text-sm">
-          R$ {Number(pedido.valor_total).toFixed(2).replace('.', ',')}
-        </span>
-        <span className="text-xs text-gray-400 capitalize">
-          {pedido.tipo_entrega === 'delivery' ? 'Delivery' : 'Retirada'}
-        </span>
-      </div>
-      <div className="flex gap-2 mt-1">
-        {coluna.proximo && (
+        </div>
+
+        {/* Botão avançar status */}
+        {coluna?.proximo && (
           <button
             onClick={() => onAvancar(pedido.id, coluna.proximo!)}
-            className="flex-1 bg-gray-900 hover:bg-gray-700 text-white text-xs font-semibold py-2 px-3 rounded-lg flex items-center justify-center gap-1 transition-colors"
+            className="w-full mt-1 flex items-center justify-center gap-1 rounded-md bg-primary text-primary-foreground text-xs py-1.5 font-medium hover:bg-primary/90 transition-colors"
           >
             {coluna.btnLabel}
-            <ChevronRight size={13} />
-          </button>
-        )}
-        {pedido.status !== 'entregue' && pedido.status !== 'cancelado' && (
-          <button
-            onClick={() => onCancelar(pedido.id)}
-            className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-            title="Cancelar pedido"
-          >
-            <X size={14} />
+            <ChevronRight size={12} />
           </button>
         )}
       </div>
@@ -143,71 +135,75 @@ function KanbanColuna({
   coluna,
   pedidos,
   onAvancar,
-  onCancelar,
 }: {
-  coluna: (typeof COLUNAS)[0]
+  coluna: typeof COLUNAS[0]
   pedidos: Pedido[]
-  onAvancar: (id: string, novoStatus: StatusPedido) => void
-  onCancelar: (id: string) => void
+  onAvancar: (id: string, status: StatusPedido) => void
 }) {
   return (
-    <div className="flex flex-col min-w-[280px] max-w-[300px] flex-shrink-0">
-      <div className={'rounded-xl px-4 py-3 mb-3 border-2 flex items-center justify-between ' + coluna.bg}>
-        <span className={'font-bold text-sm ' + coluna.cor}>{coluna.label}</span>
-        <span className={'text-xs font-bold px-2 py-0.5 rounded-full bg-white/60 ' + coluna.cor}>
+    <div className="flex flex-col flex-shrink-0 transition-all" style={{ width: '300px' }}>
+      {/* Header da coluna */}
+      <div className={`flex items-center gap-2 mb-3 px-3 py-2 rounded-full flex-shrink-0 ${coluna.bg}`}>
+        <h3 className="font-semibold text-sm">{coluna.label}</h3>
+        <span className={`ml-auto px-2 py-0.5 rounded text-sm font-bold ${coluna.count_bg}`}>
           {pedidos.length}
         </span>
+        <button className="inline-flex items-center justify-center rounded-full text-sm font-medium h-6 w-6 hover:bg-black/10 ml-1">
+          <Maximize2 size={14} />
+        </button>
       </div>
-      <div className="flex flex-col gap-3 overflow-y-auto max-h-[calc(100vh-200px)] pr-1">
-        {pedidos.length === 0 ? (
-          <div className="text-center text-gray-400 text-xs py-8 border-2 border-dashed border-gray-200 rounded-xl">
-            Nenhum pedido
-          </div>
-        ) : (
-          pedidos.map((p) => (
-            <CardPedido key={p.id} pedido={p} onAvancar={onAvancar} onCancelar={onCancelar} />
-          ))
-        )}
+
+      {/* Cards */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden pr-2 kanban-scroll">
+        <div className="space-y-2">
+          {pedidos.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              Nenhum pedido
+            </div>
+          ) : (
+            pedidos.map(p => (
+              <CardPedido key={p.id} pedido={p} onAvancar={onAvancar} />
+            ))
+          )}
+        </div>
       </div>
     </div>
   )
 }
 
 function KanbanContent() {
-  const supabase = createClientComponentClient()
   const searchParams = useSearchParams()
   const slug = searchParams.get('slug') || 'dolcedolce'
-
+  const supabase = createClientComponentClient()
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [loading, setLoading] = useState(true)
   const [busca, setBusca] = useState('')
-  const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date>(new Date())
+  const [refreshing, setRefreshing] = useState(false)
+  const estabelecimentoId = useRef<string | null>(null)
 
-  const carregarPedidos = useCallback(async () => {
-    const { data: estab } = await supabase
-      .from('estabelecimentos')
-      .select('id')
-      .eq('slug', slug)
-      .single()
-
-    if (!estab) {
-      setLoading(false)
-      return
+  const carregarPedidos = useCallback(async (showRefresh = false) => {
+    if (showRefresh) setRefreshing(true)
+    if (!estabelecimentoId.current) {
+      const { data: est } = await supabase
+        .from('estabelecimentos')
+        .select('id')
+        .eq('slug', slug)
+        .single()
+      if (est) estabelecimentoId.current = est.id
     }
+    if (!estabelecimentoId.current) { setLoading(false); if (showRefresh) setRefreshing(false); return }
 
     const { data } = await supabase
       .from('pedidos')
       .select('*')
-      .eq('estabelecimento_id', estab.id)
+      .eq('estabelecimento_id', estabelecimentoId.current)
       .not('status', 'eq', 'entregue')
-      .not('status', 'eq', 'cancelado')
-      .order('criado_em', { ascending: true })
+      .order('criado_em', { ascending: false })
+      .limit(200)
 
-    if (data) {
-      setPedidos(data as Pedido[])
-      setUltimaAtualizacao(new Date())
-    }
+    if (data) setPedidos(data as Pedido[])
     setLoading(false)
+    if (showRefresh) setRefreshing(false)
   }, [slug, supabase])
 
   useEffect(() => {
@@ -215,95 +211,88 @@ function KanbanContent() {
   }, [carregarPedidos])
 
   useEffect(() => {
+    if (!estabelecimentoId.current) return
     const channel = supabase
-      .channel('pedidos-kanban')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, () => {
-        carregarPedidos()
-      })
+      .channel('kanban-pedidos')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'pedidos',
+        filter: `estabelecimento_id=eq.${estabelecimentoId.current}`,
+      }, () => carregarPedidos())
       .subscribe()
-    return () => {
-      supabase.removeChannel(channel)
-    }
+    return () => { supabase.removeChannel(channel) }
   }, [supabase, carregarPedidos])
 
-  const avancarStatus = async (id: string, novoStatus: StatusPedido) => {
+  const avancarStatus = useCallback(async (id: string, novoStatus: StatusPedido) => {
     const agora = new Date().toISOString()
     const updates: Record<string, string> = { status: novoStatus }
-    if (novoStatus === 'em_preparo') updates.produzido_em = agora
-    if (novoStatus === 'pronto') updates.saiu_em = agora
+    if (novoStatus === 'pronto') updates.produzido_em = agora
     if (novoStatus === 'entregue') updates.entregue_em = agora
+
     await supabase.from('pedidos').update(updates).eq('id', id)
-    setPedidos((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...updates, status: novoStatus } : p))
-    )
-  }
+    setPedidos(prev => prev.map(p => p.id === id ? { ...p, status: novoStatus, ...updates } : p))
+  }, [supabase])
 
-  const cancelarPedido = async (id: string) => {
-    if (!confirm('Cancelar este pedido?')) return
-    await supabase.from('pedidos').update({ status: 'cancelado' }).eq('id', id)
-    setPedidos((prev) => prev.filter((p) => p.id !== id))
-  }
+  const pedidosFiltrados = busca
+    ? pedidos.filter(p =>
+        p.numero_pedido?.toString().includes(busca) ||
+        p.cliente_nome?.toLowerCase().includes(busca.toLowerCase())
+      )
+    : pedidos
 
-  const pedidosFiltrados = pedidos.filter((p) => {
-    if (!busca) return true
-    const q = busca.toLowerCase()
-    return (
-      p.cliente_nome.toLowerCase().includes(q) ||
-      p.cliente_telefone.includes(q) ||
-      String(p.numero_pedido).includes(q)
-    )
+  const pedidosHoje = pedidos.filter(p => {
+    const hoje = new Date().toDateString()
+    return new Date(p.criado_em).toDateString() === hoje
   })
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="text-center">
-          <RefreshCw className="animate-spin w-8 h-8 text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-500">Carregando pedidos...</p>
-        </div>
+      <div className="flex-1 flex items-center justify-center">
+        <RefreshCw className="animate-spin text-muted-foreground" size={24} />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-4 sticky top-0 z-10">
-        <h1 className="font-bold text-gray-900 text-lg">Delivery</h1>
-        <div className="relative flex-1 max-w-xs">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+    <div className="flex-1 bg-muted/60 overflow-hidden flex flex-col my-0">
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 px-4 py-3 bg-background border-b flex-shrink-0 flex-wrap">
+        <button className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors">
+          + Novo Pedido <span className="text-xs opacity-70">(F1)</span>
+        </button>
+        <div className="relative">
           <input
             type="text"
-            placeholder="Buscar pedido, cliente..."
+            placeholder="Buscar pedido..."
             value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-300"
+            onChange={e => setBusca(e.target.value)}
+            className="flex h-9 rounded-full border border-input bg-background px-4 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-48"
           />
         </div>
         <button
-          onClick={carregarPedidos}
-          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-          title="Atualizar"
+          onClick={() => carregarPedidos(true)}
+          className="inline-flex items-center justify-center rounded-full h-9 w-9 border hover:bg-muted transition-colors"
         >
-          <RefreshCw size={16} />
+          <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
         </button>
-        <span className="text-xs text-gray-400 hidden sm:block">
-          Atualizado {tempoDecorrido(ultimaAtualizacao.toISOString())}
-        </span>
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-            {pedidos.length} pedido{pedidos.length !== 1 ? 's' : ''} ativo{pedidos.length !== 1 ? 's' : ''}
+        <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <ShoppingBag size={14} />
+            {pedidosHoje.length} hoje
           </span>
         </div>
       </div>
-      <div className="p-6 overflow-x-auto">
-        <div className="flex gap-4 min-w-max">
-          {COLUNAS.map((col) => (
+
+      {/* Kanban Board */}
+      <div className="flex-1 overflow-x-auto overflow-y-hidden min-h-0 bg-[hsl(220,13%,91%)]">
+        <div className="flex gap-4 h-full px-6 w-max bg-muted py-4">
+          {COLUNAS.map(coluna => (
             <KanbanColuna
-              key={col.status}
-              coluna={col}
-              pedidos={pedidosFiltrados.filter((p) => p.status === col.status)}
+              key={coluna.status}
+              coluna={coluna}
+              pedidos={pedidosFiltrados.filter(p => p.status === coluna.status)}
               onAvancar={avancarStatus}
-              onCancelar={cancelarPedido}
             />
           ))}
         </div>
@@ -314,13 +303,11 @@ function KanbanContent() {
 
 export default function DeliveryPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center h-screen bg-gray-50">
-          <RefreshCw className="animate-spin w-8 h-8 text-gray-400" />
-        </div>
-      }
-    >
+    <Suspense fallback={
+      <div className="flex-1 flex items-center justify-center">
+        <RefreshCw className="animate-spin text-muted-foreground" size={24} />
+      </div>
+    }>
       <KanbanContent />
     </Suspense>
   )
