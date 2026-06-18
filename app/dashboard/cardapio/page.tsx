@@ -59,6 +59,18 @@ function ModalProduto({
   const [form, setForm] = useState<Produto>(produto || { ...PRECO_VAZIO, estabelecimento_id: estabelecimentoId, categoria_id: categorias[0]?.id || '' })
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
+  const [uploadando, setUploadando] = useState(false)
+
+  const uploadImagem = async (file: File) => {
+    setUploadando(true)
+    const ext = file.name.split('.').pop()
+    const nome = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+    const { data, error } = await supabase.storage.from('produtos').upload(nome, file, { upsert: true })
+    setUploadando(false)
+    if (error || !data) { setErro('Erro ao fazer upload: ' + (error?.message || '')); return }
+    const { data: urlData } = supabase.storage.from('produtos').getPublicUrl(data.path)
+    setForm(f => ({ ...f, imagem_url: urlData.publicUrl }))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -140,13 +152,26 @@ function ModalProduto({
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">URL da Imagem</label>
-            <input
-              type="url"
-              value={form.imagem_url || ''}
-              onChange={e => setForm(f => ({ ...f, imagem_url: e.target.value || null }))}
-              placeholder="https://..."
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
-            />
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={form.imagem_url || ''}
+                onChange={e => setForm(f => ({ ...f, imagem_url: e.target.value || null }))}
+                placeholder="Cole a URL ou use o botão de upload →"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+              />
+              <label className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer text-white transition-colors"
+                style={{ backgroundColor: uploadando ? '#9ca3af' : '#eb0029' }}>
+                {uploadando ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                {uploadando ? 'Enviando...' : 'Upload'}
+                <input type="file" accept="image/*" className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) uploadImagem(f) }}
+                />
+              </label>
+            </div>
+            {form.imagem_url && (
+              <img src={form.imagem_url} alt="Preview" className="mt-2 w-full h-32 object-cover rounded-lg border border-gray-200" />
+            )}
           </div>
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 cursor-pointer">
