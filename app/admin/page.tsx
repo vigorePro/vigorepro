@@ -9,6 +9,8 @@ export default function AdminLogin() {
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(false)
+  const [modoEsqueceu, setModoEsqueceu] = useState(false)
+  const [msgSucesso, setMsgSucesso] = useState('')
   const router = useRouter()
 
   async function handleLogin(e: React.FormEvent) {
@@ -29,56 +31,128 @@ export default function AdminLogin() {
     }
   }
 
+  async function handleEsqueceuSenha(e: React.FormEvent) {
+    e.preventDefault()
+    setCarregando(true)
+    setErro('')
+    setMsgSucesso('')
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/admin/reset-password`,
+    })
+
+    if (error) {
+      setErro('Erro ao enviar email. Verifique o endereço informado.')
+    } else {
+      setMsgSucesso('Email enviado! Verifique sua caixa de entrada para redefinir a senha.')
+    }
+    setCarregando(false)
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#F5EDE0' }}>
       <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ backgroundColor: '#C8956C' }}>
+          <div
+            className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
+            style={{ backgroundColor: '#C8956C' }}
+          >
             <span className="text-white text-2xl font-bold">V</span>
           </div>
-          <h1 className="text-2xl font-bold" style={{ color: '#7B3F1E' }}>VigorePro</h1>
-          <p className="text-gray-500 text-sm mt-1">Acesso ao painel administrativo</p>
+          <h1 className="text-2xl font-bold" style={{ color: '#7B3F1E' }}>
+            VigorePro
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">
+            {modoEsqueceu ? 'Redefinir senha' : 'Acesso ao painel administrativo'}
+          </p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:border-transparent"
-              style={{ '--tw-ring-color': '#C8956C' } as React.CSSProperties}
-              placeholder="seu@email.com"
-              required
-            />
-          </div>
+        {!modoEsqueceu ? (
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:border-transparent"
+                style={{ '--tw-ring-color': '#C8956C' } as React.CSSProperties}
+                placeholder="seu@email.com"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+              <input
+                type="password"
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none"
+                placeholder="••••••••"
+                required
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
-            <input
-              type="password"
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none"
-              placeholder="••••••••"
-              required
-            />
-          </div>
+            {erro && <p className="text-red-500 text-sm text-center">{erro}</p>}
 
-          {erro && (
-            <p className="text-red-500 text-sm text-center">{erro}</p>
-          )}
+            <button
+              type="submit"
+              disabled={carregando}
+              className="w-full py-3 rounded-lg text-white font-semibold transition-opacity disabled:opacity-50"
+              style={{ backgroundColor: '#7B3F1E' }}
+            >
+              {carregando ? 'Entrando...' : 'Entrar'}
+            </button>
 
-          <button
-            type="submit"
-            disabled={carregando}
-            className="w-full py-3 rounded-lg text-white font-semibold transition-opacity disabled:opacity-50"
-            style={{ backgroundColor: '#7B3F1E' }}
-          >
-            {carregando ? 'Entrando...' : 'Entrar'}
-          </button>
-        </form>
+            <p className="text-center text-sm mt-2">
+              <button
+                type="button"
+                onClick={() => { setModoEsqueceu(true); setErro('') }}
+                className="text-sm underline hover:opacity-80 transition-opacity"
+                style={{ color: '#C8956C' }}
+              >
+                Esqueci a senha
+              </button>
+            </p>
+          </form>
+        ) : (
+          <form onSubmit={handleEsqueceuSenha} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Seu email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:border-transparent"
+                placeholder="seu@email.com"
+                required
+              />
+            </div>
+
+            {erro && <p className="text-red-500 text-sm text-center">{erro}</p>}
+            {msgSucesso && <p className="text-green-600 text-sm text-center">{msgSucesso}</p>}
+
+            <button
+              type="submit"
+              disabled={carregando}
+              className="w-full py-3 rounded-lg text-white font-semibold transition-opacity disabled:opacity-50"
+              style={{ backgroundColor: '#7B3F1E' }}
+            >
+              {carregando ? 'Enviando...' : 'Enviar email de redefinição'}
+            </button>
+
+            <p className="text-center text-sm mt-2">
+              <button
+                type="button"
+                onClick={() => { setModoEsqueceu(false); setErro(''); setMsgSucesso('') }}
+                className="text-sm underline hover:opacity-80 transition-opacity"
+                style={{ color: '#C8956C' }}
+              >
+                ← Voltar ao login
+              </button>
+            </p>
+          </form>
+        )}
       </div>
     </div>
   )
