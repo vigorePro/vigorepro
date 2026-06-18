@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { Suspense, useEffect, useState, useCallback } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useSearchParams } from 'next/navigation'
 import { Clock, RefreshCw, Search, ChevronRight, Phone, MapPin, ShoppingBag, X } from 'lucide-react'
@@ -90,7 +90,9 @@ function CardPedido({
           {itensList.length} {itensList.length === 1 ? 'item' : 'itens'}
         </p>
         {itensList.slice(0, 3).map((item, i) => (
-          <p key={i} className="truncate">• {item.quantidade}x {item.nome}</p>
+          <p key={i} className="truncate">
+            {item.quantidade}x {item.nome}
+          </p>
         ))}
         {itensList.length > 3 && <p className="text-gray-400">+{itensList.length - 3} mais...</p>}
       </div>
@@ -143,16 +145,16 @@ function KanbanColuna({
   onAvancar,
   onCancelar,
 }: {
-  coluna: typeof COLUNAS[0]
+  coluna: (typeof COLUNAS)[0]
   pedidos: Pedido[]
   onAvancar: (id: string, novoStatus: StatusPedido) => void
   onCancelar: (id: string) => void
 }) {
   return (
     <div className="flex flex-col min-w-[280px] max-w-[300px] flex-shrink-0">
-      <div className={"rounded-xl px-4 py-3 mb-3 border-2 flex items-center justify-between " + coluna.bg}>
-        <span className={"font-bold text-sm " + coluna.cor}>{coluna.label}</span>
-        <span className={"text-xs font-bold px-2 py-0.5 rounded-full bg-white/60 " + coluna.cor}>
+      <div className={'rounded-xl px-4 py-3 mb-3 border-2 flex items-center justify-between ' + coluna.bg}>
+        <span className={'font-bold text-sm ' + coluna.cor}>{coluna.label}</span>
+        <span className={'text-xs font-bold px-2 py-0.5 rounded-full bg-white/60 ' + coluna.cor}>
           {pedidos.length}
         </span>
       </div>
@@ -171,7 +173,7 @@ function KanbanColuna({
   )
 }
 
-export default function DeliveryPage() {
+function KanbanContent() {
   const supabase = createClientComponentClient()
   const searchParams = useSearchParams()
   const slug = searchParams.get('slug') || 'dolcedolce'
@@ -188,7 +190,10 @@ export default function DeliveryPage() {
       .eq('slug', slug)
       .single()
 
-    if (!estab) { setLoading(false); return }
+    if (!estab) {
+      setLoading(false)
+      return
+    }
 
     const { data } = await supabase
       .from('pedidos')
@@ -205,7 +210,9 @@ export default function DeliveryPage() {
     setLoading(false)
   }, [slug, supabase])
 
-  useEffect(() => { carregarPedidos() }, [carregarPedidos])
+  useEffect(() => {
+    carregarPedidos()
+  }, [carregarPedidos])
 
   useEffect(() => {
     const channel = supabase
@@ -214,7 +221,9 @@ export default function DeliveryPage() {
         carregarPedidos()
       })
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [supabase, carregarPedidos])
 
   const avancarStatus = async (id: string, novoStatus: StatusPedido) => {
@@ -300,5 +309,19 @@ export default function DeliveryPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function DeliveryPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center h-screen bg-gray-50">
+          <RefreshCw className="animate-spin w-8 h-8 text-gray-400" />
+        </div>
+      }
+    >
+      <KanbanContent />
+    </Suspense>
   )
 }
