@@ -139,6 +139,8 @@ function DashboardContent() {
             className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">Cardápio</button>
           <button onClick={() => router.push('/dashboard/pdv?slug=' + (slug || estabelecimento?.slug))}
             className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">PDV</button>
+          <button onClick={() => router.push('/dashboard/mesas?slug=' + (slug || estabelecimento?.slug))}
+            className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">Mesas</button>
           <button onClick={() => router.push('/dashboard/produtos')}
             className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">Produtos</button>
           <button onClick={() => router.push('/dashboard/categorias?slug=' + (slug || estabelecimento?.slug))}
