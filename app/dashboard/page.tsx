@@ -1,289 +1,213 @@
 'use client'
 
 import { Suspense } from 'react'
-import { useEffect, useRef, useState } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import type { Pedido, Estabelecimento } from '@/lib/supabase'
+import { TrendingUp, ShoppingBag, DollarSign, Clock, ChefHat, Truck } from 'lucide-react'
 
-const STATUS_LABELS: Record<string, { label: string; cor: string; bg: string }> = {
-  em_producao: { label: 'Em Producao', cor: '#F59E0B', bg: '#FFFBEB' },
-  confirmado: { label: 'Confirmado', cor: '#F59E0B', bg: '#FFFBEB' },
-  em_preparo: { label: 'Em Preparo', cor: '#3B82F6', bg: '#EFF6FF' },
-  pronto: { label: 'Pronto', cor: '#10B981', bg: '#F0FDF4' },
-  entregue: { label: 'Entregue', cor: '#6B7280', bg: '#F9FAFB' },
-  cancelado: { label: 'Cancelado', cor: '#EF4444', bg: '#FEF2F2' },
+interface PedidoResumo {
+  id: string
+  numero: number
+  status: string
+  total: number
+  tipo: string
+  cliente_nome: string
+  criado_em: string
 }
 
 function DashboardContent() {
   const searchParams = useSearchParams()
-  const router = useRouter()
-  const slug = searchParams.get('slug')
-  const [estabelecimento, setEstabelecimento] = useState<Estabelecimento | null>(null)
-  const [pedidos, setPedidos] = useState<Pedido[]>([])
-  const pedidosAnterior = useRef<number>(-1)
-  const [abaAtiva, setAbaAtiva] = useState<'producao' | 'entrega' | 'historico'>('producao')
+  const slug = searchParams.get('slug') || ''
+
+  const [pedidosHoje, setPedidosHoje] = useState<PedidoResumo[]>([])
+  const [pedidosMes, setPedidosMes] = useState<number>(0)
+  const [receitaHoje, setReceitaHoje] = useState<number>(0)
+  const [receitaMes, setReceitaMes] = useState<number>(0)
+  const [ticketMedio, setTicketMedio] = useState<number>(0)
+  const [emPreparo, setEmPreparo] = useState<number>(0)
+  const [emEntrega, setEmEntrega] = useState<number>(0)
+  const [estabelecimentoId, setEstabelecimentoId] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
+  const [nomeEstab, setNomeEstab] = useState('')
 
   useEffect(() => {
-    if (slug) iniciar()
-    else verificarAuth()
+    if (!slug) return
+    const fetchEstab = async () => {
+      const { data } = await supabase.from('estabelecimentos').select('*').eq('slug', slug).single()
+      if (data) { setEstabelecimentoId(data.id); setNomeEstab(data.nome || '') }
+    }
+    fetchEstab()
   }, [slug])
 
-  async function verificarAuth() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/admin'); return }
-    const { data: est } = await supabase.from('estabelecimentos').select('*').single()
-    if (est) {
-      setEstabelecimento(est)
-      carregarPedidos(est.id)
-      assinarRealtime(est.id)
-    }
-    setCarregando(false)
-  }
+  useEffect(() => {
+    if (!estabelecimentoId) return
+    fetchDados()
+  }, [estabelecimentoId])
 
-  async function iniciar() {
-    const { data: est } = await supabase
-      .from('estabelecimentos')
-      .select('*')
-      .eq('slug', slug)
-      .single()
-    if (!est) { setCarregando(false); return }
-    setEstabelecimento(est)
-    carregarPedidos(est.id)
-    assinarRealtime(est.id)
-    setCarregando(false)
-  }
+  const fetchDados = async () => {
+    setCarregando(true)
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
+    const inicioDia = hoje.toISOString()
+    const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString()
 
-  function tocarBeep() {
-    try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.frequency.value = 880
-      gain.gain.setValueAtTime(0.3, ctx.currentTime)
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4)
-      osc.start(ctx.currentTime)
-      osc.stop(ctx.currentTime + 0.4)
-    } catch {}
-  }
-
-  async function carregarPedidos(estId: string) {
-    const { data } = await supabase
+    const { data: pedidos } = await supabase
       .from('pedidos')
       .select('*')
-      .eq('estabelecimento_id', estId)
+      .eq('estabelecimento_id', estabelecimentoId)
+      .gte('criado_em', inicioDia)
       .order('criado_em', { ascending: false })
-      .limit(100)
-    const novos = (data || []) as Pedido[]
-    const ativos = novos.filter(p => !['entregue', 'cancelado'].includes(p.status))
-    if (pedidosAnterior.current >= 0 && ativos.length > pedidosAnterior.current) {
-      tocarBeep()
+
+    if (pedidos) {
+      setPedidosHoje(pedidos)
+      const entregues = pedidos.filter(p => p.status === 'entregue')
+      setReceitaHoje(entregues.reduce((acc, p) => acc + (p.total || 0), 0))
+      setEmPreparo(pedidos.filter(p => p.status === 'em_preparo' || p.status === 'aguardando').length)
+      setEmEntrega(pedidos.filter(p => p.status === 'pronto').length)
+      setTicketMedio(entregues.length > 0 ? entregues.reduce((a, p) => a + (p.total || 0), 0) / entregues.length : 0)
     }
-    pedidosAnterior.current = ativos.length
-    setPedidos(novos)
+
+    const { data: mesPedidos } = await supabase
+      .from('pedidos')
+      .select('total, status')
+      .eq('estabelecimento_id', estabelecimentoId)
+      .eq('status', 'entregue')
+      .gte('criado_em', inicioMes)
+
+    if (mesPedidos) {
+      setPedidosMes(mesPedidos.length)
+      setReceitaMes(mesPedidos.reduce((acc, p) => acc + (p.total || 0), 0))
+    }
+    setCarregando(false)
   }
 
-  function assinarRealtime(estId: string) {
-    supabase.channel('dashboard-' + estId)
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'pedidos',
-        filter: 'estabelecimento_id=eq.' + estId
-      }, () => carregarPedidos(estId))
-      .subscribe()
+  const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
+  const fmtHora = (d: string) => new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  const statusLabel: Record<string, string> = {
+    aguardando: 'Aguardando', em_preparo: 'Em preparo', pronto: 'Pronto', entregue: 'Entregue', cancelado: 'Cancelado'
   }
-
-  async function atualizarStatus(pedidoId: string, novoStatus: string) {
-    await supabase.from('pedidos').update({ status: novoStatus }).eq('id', pedidoId)
-    if (estabelecimento?.id) await carregarPedidos(estabelecimento.id)
+  const statusColor: Record<string, string> = {
+    aguardando: '#f59e0b', em_preparo: '#3b82f6', pronto: '#10b981', entregue: '#6b7280', cancelado: '#ef4444'
   }
-
-  const ativos = pedidos.filter(p => !['entregue', 'cancelado'].includes(p.status))
-  const historico = pedidos.filter(p => ['entregue', 'cancelado'].includes(p.status))
-  const emEntrega = pedidos.filter(p => p.status === 'pronto' && p.tipo_entrega === 'delivery')
-  const resumo = {
-    total: pedidos.filter(p => p.status === 'entregue').reduce((s, p) => s + p.valor_total, 0),
-    count: pedidos.filter(p => p.status === 'entregue').length,
-    ativos: ativos.length,
-  }
-
-  if (carregando) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="text-center">
-        <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <div className="text-gray-500">Carregando...</div>
-      </div>
-    </div>
-  )
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="p-6 min-h-screen" style={{ backgroundColor: '#111111' }}>
       {/* Header */}
-      <div className="bg-white border-b px-4 py-3 flex items-center justify-between sticky top-0 z-10 shadow-sm">
-        <div>
-          <div className="text-lg font-bold text-gray-800">{estabelecimento?.nome || 'Dashboard'}</div>
-          <div className="text-xs text-gray-400">Painel de Controle</div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-white">{nomeEstab || 'Dashboard'}</h1>
+        <p className="text-sm mt-0.5" style={{ color: '#9ca3af' }}>
+          {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+        </p>
+      </div>
+
+      {carregando ? (
+        <div className="flex justify-center py-20">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: '#eb0029' }}></div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-            <div className="text-xs text-gray-400">Faturamento hoje</div>
-            <div className="font-bold text-green-600">R$ {resumo.total.toFixed(2)}</div>
+      ) : (
+        <>
+          {/* Cards principais */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {/* Receita hoje */}
+            <div className="rounded-xl p-5 border" style={{ backgroundColor: '#1a1a1a', borderColor: '#2a2a2a' }}>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium" style={{ color: '#9ca3af' }}>Receita Hoje</span>
+                <div className="p-2 rounded-lg" style={{ backgroundColor: '#2a1208' }}>
+                  <DollarSign size={16} style={{ color: '#eb0029' }} />
+                </div>
+              </div>
+              <p className="text-2xl font-bold text-white">{fmt(receitaHoje)}</p>
+              <p className="text-xs mt-1" style={{ color: '#6b7280' }}>{pedidosHoje.filter(p => p.status === 'entregue').length} pedidos finalizados</p>
+            </div>
+
+            {/* Ticket médio */}
+            <div className="rounded-xl p-5 border" style={{ backgroundColor: '#1a1a1a', borderColor: '#2a2a2a' }}>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium" style={{ color: '#9ca3af' }}>Ticket Médio</span>
+                <div className="p-2 rounded-lg" style={{ backgroundColor: '#1a2a1a' }}>
+                  <TrendingUp size={16} style={{ color: '#10b981' }} />
+                </div>
+              </div>
+              <p className="text-2xl font-bold text-white">{fmt(ticketMedio)}</p>
+              <p className="text-xs mt-1" style={{ color: '#6b7280' }}>por pedido entregue</p>
+            </div>
+
+            {/* Em preparo */}
+            <div className="rounded-xl p-5 border" style={{ backgroundColor: '#1a1a1a', borderColor: '#2a2a2a' }}>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium" style={{ color: '#9ca3af' }}>Em Preparo</span>
+                <div className="p-2 rounded-lg" style={{ backgroundColor: '#1a1e2a' }}>
+                  <ChefHat size={16} style={{ color: '#3b82f6' }} />
+                </div>
+              </div>
+              <p className="text-2xl font-bold text-white">{emPreparo}</p>
+              <p className="text-xs mt-1" style={{ color: '#6b7280' }}>pedidos na cozinha</p>
+            </div>
+
+            {/* Receita do mês */}
+            <div className="rounded-xl p-5 border" style={{ backgroundColor: '#1a1a1a', borderColor: '#2a2a2a' }}>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium" style={{ color: '#9ca3af' }}>Receita do Mês</span>
+                <div className="p-2 rounded-lg" style={{ backgroundColor: '#2a1e10' }}>
+                  <ShoppingBag size={16} style={{ color: '#f59e0b' }} />
+                </div>
+              </div>
+              <p className="text-2xl font-bold text-white">{fmt(receitaMes)}</p>
+              <p className="text-xs mt-1" style={{ color: '#6b7280' }}>{pedidosMes} pedidos finalizados</p>
+            </div>
           </div>
-          <button onClick={() => router.push('/cozinha?slug=' + slug)}
-            className="bg-gray-800 text-white px-3 py-1.5 rounded-lg text-sm">Cozinha</button>
-          <button onClick={() => router.push('/admin/delivery?slug=' + (slug || estabelecimento?.slug))}
-            className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">Delivery</button>
-          <button onClick={() => router.push('/dashboard/cardapio?slug=' + (slug || estabelecimento?.slug))}
-            className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">Cardápio</button>
-          <button onClick={() => router.push('/dashboard/pdv?slug=' + (slug || estabelecimento?.slug))}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">PDV</button>
-          <button onClick={() => router.push('/dashboard/mesas?slug=' + (slug || estabelecimento?.slug))}
-            className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">Mesas</button>
-          <button onClick={() => router.push('/dashboard/produtos')}
-            className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">Produtos</button>
-          <button onClick={() => router.push('/dashboard/categorias?slug=' + (slug || estabelecimento?.slug))}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">Banners</button>
-          <button onClick={() => router.push('/dashboard/historico?slug=' + (slug || estabelecimento?.slug))}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">Histórico</button>
-          <button onClick={() => router.push('/dashboard/configuracoes?slug=' + (slug || estabelecimento?.slug))}
-            className="bg-gray-700 hover:bg-gray-800 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">Config</button>
-          <button onClick={() => supabase.auth.signOut().then(() => router.push('/admin'))}
-            className="text-gray-400 text-sm px-2 py-1 rounded hover:bg-gray-100">Sair</button>
-        </div>
-      </div>
 
-      {/* Resumo */}
-      <div className="grid grid-cols-3 gap-3 p-4">
-        <div className="bg-white rounded-xl p-3 shadow-sm text-center">
-          <div className="text-2xl font-bold text-amber-600">{resumo.ativos}</div>
-          <div className="text-xs text-gray-500">Ativos</div>
-        </div>
-        <div className="bg-white rounded-xl p-3 shadow-sm text-center">
-          <div className="text-2xl font-bold text-blue-600">{emEntrega.length}</div>
-          <div className="text-xs text-gray-500">Em entrega</div>
-        </div>
-        <div className="bg-white rounded-xl p-3 shadow-sm text-center">
-          <div className="text-2xl font-bold text-green-600">{resumo.count}</div>
-          <div className="text-xs text-gray-500">Concluidos</div>
-        </div>
-      </div>
+          {/* Pedidos de hoje */}
+          <div className="rounded-xl border" style={{ backgroundColor: '#1a1a1a', borderColor: '#2a2a2a' }}>
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: '#2a2a2a' }}>
+              <h2 className="font-semibold text-white">Pedidos de Hoje</h2>
+              <span className="text-sm px-2 py-1 rounded-full" style={{ backgroundColor: '#2a2a2a', color: '#9ca3af' }}>
+                {pedidosHoje.length} total
+              </span>
+            </div>
 
-      {/* Abas */}
-      <div className="flex border-b bg-white mx-4 rounded-t-xl overflow-hidden shadow-sm">
-        {(['producao', 'entrega', 'historico'] as const).map(aba => (
-          <button key={aba} onClick={() => setAbaAtiva(aba)}
-            className={'flex-1 py-3 text-sm font-medium ' + (abaAtiva === aba ? 'border-b-2 border-amber-500 text-amber-600 bg-amber-50' : 'text-gray-500')}>
-            {aba === 'producao' ? `Producao (${ativos.length})` : aba === 'entrega' ? `Entrega (${emEntrega.length})` : `Historico (${historico.length})`}
-          </button>
-        ))}
-      </div>
-
-      {/* Conteudo */}
-      <div className="p-4 space-y-3">
-        {/* ABA PRODUCAO */}
-        {abaAtiva === 'producao' && (
-          ativos.length === 0
-            ? <div className="text-center py-12 text-gray-400">Nenhum pedido ativo</div>
-            : ativos.map(pedido => {
-              const info = STATUS_LABELS[pedido.status] || STATUS_LABELS.em_producao
-              return (
-                <div key={pedido.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
-                  <div className="px-4 py-3 flex items-center justify-between" style={{ backgroundColor: info.bg }}>
-                    <div>
-                      <span className="font-bold text-base" style={{ color: info.cor }}>#{pedido.numero_pedido}</span>
-                      <span className="ml-2 text-sm font-medium text-gray-700">{pedido.cliente_nome}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs px-2 py-1 rounded-full font-medium" style={{ color: info.cor }}>{info.label}</span>
-                      <span className="text-xs text-gray-400">{pedido.tipo_entrega === 'delivery' ? 'Delivery' : 'Retirada'}</span>
-                    </div>
-                  </div>
-                  <div className="px-4 py-3">
-                    <div className="space-y-1 mb-3">
-                      {(pedido.itens as any[]).map((item: any, i: number) => (
-                        <div key={i} className="flex justify-between text-sm">
-                          <span>{item.quantidade}x {item.nome}</span>
-                          <span className="text-gray-500">R$ {(item.preco * item.quantidade).toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
-                    {pedido.observacoes && (
-                      <div className="text-xs bg-yellow-50 text-yellow-700 rounded p-2 mb-3">{pedido.observacoes}</div>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-amber-700">R$ {pedido.valor_total.toFixed(2)}</span>
-                      <div className="flex gap-2">
-                        {pedido.status === 'em_producao' && (
-                          <>
-                            <button onClick={() => atualizarStatus(pedido.id, 'cancelado')}
-                              className="px-3 py-1.5 rounded-lg text-sm border border-red-200 text-red-600">Cancelar</button>
-                            <button onClick={() => atualizarStatus(pedido.id, 'em_preparo')}
-                              className="px-3 py-1.5 rounded-lg text-sm bg-blue-500 text-white">Iniciar Preparo</button>
-                          </>
-                        )}
-                        {pedido.status === 'confirmado' && (
-                          <button onClick={() => atualizarStatus(pedido.id, 'em_preparo')}
-                            className="px-3 py-1.5 rounded-lg text-sm bg-blue-500 text-white">Iniciar Preparo</button>
-                        )}
-                        {pedido.status === 'em_preparo' && (
-                          <button onClick={() => atualizarStatus(pedido.id, 'pronto')}
-                            className="px-3 py-1.5 rounded-lg text-sm bg-green-500 text-white">Marcar Pronto</button>
-                        )}
-                        {pedido.status === 'pronto' && pedido.tipo_entrega === 'retirada' && (
-                          <button onClick={() => atualizarStatus(pedido.id, 'entregue')}
-                            className="px-3 py-1.5 rounded-lg text-sm bg-gray-500 text-white">Entregue</button>
-                        )}
+            {pedidosHoje.length === 0 ? (
+              <div className="py-12 text-center">
+                <ShoppingBag size={36} className="mx-auto mb-3" style={{ color: '#374151' }} />
+                <p style={{ color: '#6b7280' }}>Nenhum pedido hoje ainda</p>
+              </div>
+            ) : (
+              <div className="divide-y" style={{ borderColor: '#2a2a2a' }}>
+                {pedidosHoje.slice(0, 15).map(p => (
+                  <div key={p.id} className="flex items-center justify-between px-5 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                        style={{ backgroundColor: '#eb0029' }}>
+                        #{p.numero}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-white">{p.cliente_nome || 'Cliente'}</p>
+                        <p className="text-xs" style={{ color: '#6b7280' }}>
+                          {fmtHora(p.criado_em)} · {p.tipo || 'delivery'}
+                        </p>
                       </div>
                     </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium"
+                        style={{ backgroundColor: statusColor[p.status] + '22', color: statusColor[p.status] }}>
+                        {statusLabel[p.status] || p.status}
+                      </span>
+                      <span className="text-sm font-semibold text-white">{fmt(p.total)}</span>
+                    </div>
                   </div>
-                </div>
-              )
-            })
-        )}
-
-        {/* ABA ENTREGA */}
-        {abaAtiva === 'entrega' && (
-          emEntrega.length === 0
-            ? <div className="text-center py-12 text-gray-400">Nenhum pedido aguardando entrega</div>
-            : emEntrega.map(pedido => (
-              <div key={pedido.id} className="bg-white rounded-xl shadow-sm p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-bold text-green-600">#{pedido.numero_pedido} - PRONTO</span>
-                  <span className="text-xs text-gray-400">R$ {pedido.valor_total.toFixed(2)}</span>
-                </div>
-                <div className="text-sm font-medium">{pedido.cliente_nome}</div>
-                <div className="text-xs text-gray-500 mb-1">{pedido.cliente_telefone}</div>
-                <div className="text-xs text-gray-600 mb-3">{pedido.endereco}</div>
-                <button onClick={() => atualizarStatus(pedido.id, 'entregue')}
-                  className="w-full py-2 bg-green-500 text-white rounded-lg text-sm font-medium">Confirmar Entrega</button>
+                ))}
               </div>
-            ))
-        )}
-
-        {/* ABA HISTORICO */}
-        {abaAtiva === 'historico' && (
-          historico.length === 0
-            ? <div className="text-center py-12 text-gray-400">Nenhum pedido no historico</div>
-            : historico.slice(0, 50).map(pedido => (
-              <div key={pedido.id} className="bg-white rounded-xl shadow-sm p-3 flex items-center justify-between opacity-75">
-                <div>
-                  <span className="font-medium text-gray-700">#{pedido.numero_pedido} - {pedido.cliente_nome}</span>
-                  <div className="text-xs text-gray-400">{pedido.status === 'entregue' ? 'Entregue' : 'Cancelado'}</div>
-                </div>
-                <span className="font-bold text-gray-500">R$ {pedido.valor_total.toFixed(2)}</span>
-              </div>
-            ))
-        )}
-      </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }
 
 export default function Dashboard() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center">Carregando...</div>}>
+    <Suspense fallback={<div className="flex justify-center items-center min-h-screen" style={{ backgroundColor: '#111111' }}><div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: '#eb0029' }}></div></div>}>
       <DashboardContent />
     </Suspense>
   )
