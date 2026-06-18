@@ -72,7 +72,7 @@ function PDVContent() {
 
     const { data: prods } = await supabase
       .from('produtos')
-      .select('id, categoria_id, nome, descricao, preco, imagem_url, disponivel')
+      .select('*')
       .eq('estabelecimento_id', estab.id)
       .order('nome')
 
