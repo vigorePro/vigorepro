@@ -3,7 +3,7 @@ import { Suspense } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   House, Wallet, Bike, UtensilsCrossed, ShoppingCart, ChefHat,
-  ChartColumn, Smartphone, CreditCard, MessageCircle, BarChart2,
+  BarChart3, Smartphone, CreditCard, MessageCircle, BarChart2,
   BookOpen, Globe, Users, HandCoins, Lightbulb, Link2,
   BookOpenText, Headphones, LogOut, Settings, ExternalLink
 } from 'lucide-react'
@@ -34,7 +34,7 @@ function SidebarContent() {
         { label: 'Mesas/Comandas', href: `/dashboard/mesas?slug=${slug}`, icon: UtensilsCrossed },
         { label: 'PDV', href: `/dashboard/pdv?slug=${slug}`, icon: ShoppingCart },
         { label: 'KDS', href: `https://kds.vigorepro.com.br?slug=${slug}`, icon: ChefHat, external: true },
-        { label: 'Histórico de Vendas', href: `/dashboard/historico?slug=${slug}`, icon: ChartColumn },
+        { label: 'Histórico de Vendas', href: `/dashboard/historico?slug=${slug}`, icon: BarChart3 },
       ]
     },
     {
@@ -79,7 +79,6 @@ function SidebarContent() {
 
   return (
     <>
-      {/* Logo */}
       <div style={{
         height: '65px',
         display: 'flex',
@@ -107,7 +106,6 @@ function SidebarContent() {
         </div>
       </div>
 
-      {/* Nav */}
       <nav style={{ flex: 1, padding: '8px', overflowY: 'auto' }}>
         {navGroups.map((group, groupIndex) => (
           <div key={groupIndex}>
@@ -160,7 +158,6 @@ function SidebarContent() {
         ))}
       </nav>
 
-      {/* Footer */}
       <div style={{
         padding: '8px 16px',
         borderTop: '1px solid #292929',
