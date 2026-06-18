@@ -5,202 +5,221 @@ import { Suspense } from 'react'
 import Link from 'next/link'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useRouter } from 'next/navigation'
+import {
+    House, Wallet, Bike, UtensilsCrossed, ShoppingCart, ChefHat,
+    ChartColumn, Smartphone, CreditCard, MessageCircle, BarChart2,
+    BookOpen, Globe, Users, HandCoins, Lightbulb, Link2,
+    BookOpenText, Headphones, LogOut, Settings, Package, DollarSign,
+    Megaphone, Receipt, ExternalLink, Star, Tablet
+} from 'lucide-react'
 
 const NAV_GROUPS = [
   {
-    items: [
-      { label: 'Início', href: '/dashboard', icon: '🏠' },
-      { label: 'Caixa', href: '/dashboard/caixa', icon: '🖥' },
-      { label: 'Delivery', href: '/admin/delivery', icon: '🚲' },
-      { label: 'Mesas/Comandas', href: '/dashboard/mesas', icon: '⊞' },
-      { label: 'PDV', href: '/dashboard/pdv', icon: '🛒' },
-      { label: 'KDS', href: '/admin/cozinha', icon: '🍳', external: true },
-      { label: 'Histórico de Vendas', href: '/dashboard/historico', icon: '📊' },
-    ]
+        items: [
+          { label: 'Inicio',              icon: House,           href: '/dashboard' },
+          { label: 'Caixa',               icon: Wallet,          href: '/dashboard/caixa' },
+          { label: 'Delivery',            icon: Bike,            href: '/admin/delivery' },
+          { label: 'Mesas/Comandas',      icon: UtensilsCrossed, href: '/dashboard/mesas' },
+          { label: 'PDV',                 icon: ShoppingCart,    href: '/dashboard/pdv' },
+          { label: 'KDS',                 icon: ChefHat,         href: '/admin/cozinha', external: true },
+          { label: 'Historico de Vendas', icon: ChartColumn,     href: '/dashboard/historico' },
+              ],
   },
   {
-    divider: true,
-    items: [
-      { label: 'Aplicativos', href: '/dashboard/aplicativos', icon: '📱' },
-      { label: 'Pix Online', href: '/dashboard/pix', icon: '💳' },
-      { label: 'WhatsApp', href: '/dashboard/whatsapp', icon: '💬' },
-      { label: 'Desempenho', href: '/dashboard/desempenho', icon: '📈' },
-    ]
+        divider: true,
+        items: [
+          { label: 'Aplicativos',         icon: Smartphone,      href: '/dashboard/aplicativos' },
+          { label: 'Pix Online',          icon: CreditCard,      href: '/dashboard/pix' },
+          { label: 'WhatsApp',            icon: MessageCircle,   href: '/dashboard/whatsapp' },
+          { label: 'Desempenho',          icon: BarChart2,       href: '/dashboard/desempenho' },
+              ],
   },
   {
-    divider: true,
-    items: [
-      { label: 'Cardápio', href: '/dashboard/cardapio', icon: '📋' },
-      { label: 'Cardápio Digital', href: '/dashboard/cardapio-digital', icon: '🌐' },
-      { label: 'Estoque', href: '/dashboard/estoque', icon: '📦' },
-    ]
+        divider: true,
+        items: [
+          { label: 'Cardapio',            icon: BookOpen,        href: '/dashboard/cardapio' },
+          { label: 'Cardapio Digital',    icon: Globe,           href: '/dashboard/cardapio-digital' },
+          { label: 'Clientes',            icon: Users,           href: '/dashboard/clientes' },
+          { label: 'Fidelidade CRM',      icon: HandCoins,       href: '/dashboard/fidelidade' },
+              ],
   },
   {
-    divider: true,
-    items: [
-      { label: 'Clientes', href: '/dashboard/clientes', icon: '👥' },
-      { label: 'Fidelidade (CRM)', href: '/dashboard/fidelidade', icon: '⭐', badge: 'NOVO' },
-      { label: 'Food Marketing', href: '/dashboard/marketing', icon: '📣', badge: 'NOVO' },
-      { label: 'Fiado', href: '/dashboard/fiado', icon: '💰' },
-    ]
+        divider: true,
+        items: [
+          { label: 'Estoque',             icon: Package,         href: '/dashboard/estoque' },
+          { label: 'Financeiro',          icon: DollarSign,      href: '/dashboard/financeiro' },
+          { label: 'Marketing',           icon: Megaphone,       href: '/dashboard/marketing' },
+          { label: 'Fiscal',              icon: Receipt,         href: '/dashboard/fiscal' },
+              ],
   },
   {
-    divider: true,
-    items: [
-      { label: 'Financeiro', href: '/dashboard/financeiro', icon: '💵' },
-      { label: 'Fiscal', href: '/dashboard/fiscal', icon: '🧾' },
-    ]
+        divider: true,
+        items: [
+          { label: 'Sugestoes',           icon: Lightbulb,       href: '/dashboard/sugestoes' },
+          { label: 'Meus Links',          icon: Link2,           href: '/dashboard/links' },
+          { label: 'Manual',              icon: BookOpenText,    href: '/dashboard/manual' },
+          { label: 'Suporte',             icon: Headphones,      href: '/dashboard/suporte' },
+              ],
   },
   {
-    divider: true,
-    items: [
-      { label: 'Cadastros', href: '/dashboard/cadastros', icon: '📂' },
-      { label: 'Configuração', href: '/dashboard/configuracoes', icon: '⚙️' },
-      { label: 'Novidades', href: '/dashboard/novidades', icon: '🎉' },
-    ]
-  }
-]
-
-const FOOTER_ITEMS = [
-  { label: 'Sugestões', icon: '💡' },
-  { label: 'Meus Links', icon: '🔗' },
-  { label: 'Manual', icon: '📖' },
-  { label: 'Suporte', icon: '🎧' },
-]
+        divider: true,
+        items: [
+          { label: 'Configuracoes',       icon: Settings,        href: '/dashboard/configuracoes' },
+          { label: 'Sair',                icon: LogOut,          href: '/logout', danger: true },
+              ],
+  },
+  ]
 
 function SlugReader({ children }: { children: (slug: string) => React.ReactNode }) {
-  const searchParams = useSearchParams()
-  const slug = searchParams.get('slug') || ''
-  return <>{children(slug)}</>
-}
+    const searchParams = useSearchParams()
+    const slug = searchParams.get('slug') || ''
+    return <>{children(slug)}</>>
+      }
 
 function Sidebar({ slug }: { slug: string }) {
-  const pathname = usePathname()
-  const router = useRouter()
-  const supabase = createClientComponentClient()
-
-  const isActive = (href: string) => {
-    if (href === '/dashboard') return pathname === '/dashboard'
-    return pathname.startsWith(href)
-  }
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push('/admin')
-  }
-
-  return (
-    <aside
-      style={{
-        position: 'fixed', left: 0, top: 0, height: '100vh', width: '200px',
-        backgroundColor: '#1c1208', borderRight: '1px solid #2a1e10',
-        display: 'flex', flexDirection: 'column', zIndex: 40, overflowY: 'auto'
-      }}
-    >
-      {/* Logo */}
-      <div style={{ padding: '16px 12px', borderBottom: '1px solid #2a1e10', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: '#eb0029', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: '900', fontSize: '14px', flexShrink: 0 }}>
-          VP
-        </div>
-        <div style={{ overflow: 'hidden' }}>
-          <div style={{ fontSize: '13px', fontWeight: '700', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            VigorePro
-          </div>
-          <div style={{ fontSize: '10px', color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {slug || 'estabelecimento'}
-          </div>
-        </div>
-      </div>
-
-      {/* Nav */}
-      <nav style={{ flex: 1, padding: '6px 8px', overflowY: 'auto' }}>
-        {NAV_GROUPS.map((group, gi) => (
-          <div key={gi}>
-            {group.divider && <div style={{ height: '1px', backgroundColor: '#2a1e10', margin: '6px 4px' }} />}
-            {group.items.map(item => {
-              const active = isActive(item.href)
-              const href = item.href + (slug ? '?slug=' + slug : '')
-              return (
-                <Link
-                  key={item.href}
-                  href={href}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px',
-                    borderRadius: '6px', marginBottom: '1px', textDecoration: 'none',
-                    backgroundColor: active ? '#eb002922' : 'transparent',
-                    color: active ? '#eb0029' : '#c9b8a8',
-                    fontSize: '12.5px', fontWeight: active ? '600' : '400',
-                    borderLeft: active ? '2px solid #eb0029' : '2px solid transparent'
-                  }}
-                >
-                  <span style={{ fontSize: '14px', flexShrink: 0 }}>{item.icon}</span>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{item.label}</span>
-                  {(item as any).badge && (
-                    <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '4px', backgroundColor: '#10b981', color: '#fff', fontWeight: '700', flexShrink: 0 }}>
-                      {(item as any).badge}
-                    </span>
-                  )}
-                  {(item as any).external && (
-                    <span style={{ fontSize: '10px', color: '#6b7280', flexShrink: 0 }}>↗</span>
-                  )}
-                </Link>
-              )
-            })}
-          </div>
-        ))}
-      </nav>
-
-      {/* Footer */}
-      <div style={{ borderTop: '1px solid #2a1e10', padding: '8px' }}>
-        {FOOTER_ITEMS.map(item => (
-          <button
-            key={item.label}
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px',
-              borderRadius: '6px', marginBottom: '1px', backgroundColor: 'transparent', border: 'none',
-              color: '#9ca3af', fontSize: '12px', cursor: 'pointer', textAlign: 'left' as any
-            }}
-          >
-            <span style={{ fontSize: '13px' }}>{item.icon}</span>
-            {item.label}
-          </button>
-        ))}
-        <button
-          onClick={handleSignOut}
-          style={{
-            width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px',
-            borderRadius: '6px', marginTop: '4px', backgroundColor: 'transparent', border: 'none',
-            color: '#ef4444', fontSize: '12px', cursor: 'pointer', textAlign: 'left' as any
-          }}
-        >
-          <span>🚪</span> Sair
-        </button>
-        <div style={{ padding: '4px 10px', fontSize: '10px', color: '#4b5563', textAlign: 'center' as any }}>
-          v1.0.0
-        </div>
-      </div>
-    </aside>
-  )
-}
+    const pathname = usePathname()
+        const router = useRouter()
+            const supabase = createClientComponentClient()
+              
+                const isActive = (href: string) => {
+                      if (href === '/dashboard') return pathname === '/dashboard'
+                            return pathname.startsWith(href)
+                }
+                  
+                    const handleSignOut = async () => {
+                          await supabase.auth.signOut()
+                                router.push('/admin')
+                    }
+                      
+                        return (
+                              <aside style={{
+                                      position: 'fixed', left: 0, top: 0, height: '100vh', width: '208px',
+                                      backgroundColor: '#080808',
+                                      borderRight: '1px solid #292929',
+                                      display: 'flex', flexDirection: 'column', zIndex: 40, overflowY: 'auto',
+                                      fontFamily: 'Mulish, sans-serif',
+                              }}>
+                              
+                                {/* Logo */}
+                                    <div style={{
+                                        padding: '16px',
+                                        borderBottom: '1px solid #424242',
+                                        display: 'flex', alignItems: 'center', gap: '10px',
+                                        height: '65px', flexShrink: 0,
+                              }}>
+                                            <div style={{
+                                          width: '32px', height: '32px', borderRadius: '6px',
+                                          backgroundColor: '#ef4239',
+                                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                          color: '#fff', fontWeight: 800, fontSize: '12px', flexShrink: 0,
+                                          fontFamily: 'Mulish, sans-serif',
+                              }}>VP</div>div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', overflow: 'hidden' }}>
+                                                      <span style={{ color: '#e6e6e6', fontWeight: 700, fontSize: '13px', lineHeight: '16px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>VigorePro</span>span>
+                                                      <span style={{ color: '#666', fontWeight: 400, fontSize: '11px', lineHeight: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{slug || 'estabelecimento'}</span>span>
+                                            </div>div>
+                                    </div>div>
+                              
+                                {/* Nav */}
+                                    <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+                                      {NAV_GROUPS.map((group, gi) => (
+                                          <div key={gi}>
+                                            {group.divider && (
+                                                          <div style={{ height: '1px', backgroundColor: '#424242', margin: '0 8px' }} />
+                                                        )}
+                                                      <div style={{ padding: '8px 2px' }}>
+                                                        {group.items.map((item) => {
+                                                            const active = isActive(item.href)
+                                                                              const href = `${item.href}?slug=${slug}`
+                                                                                                const Icon = item.icon as any
+                                                                                                  
+                                                                                                                  if (item.href === '/logout') {
+                                                                                                                                      return (
+                                                                                                                                                            <button
+                                                                                                                                                                                    key={item.href}
+                                                                                                                                                                                    onClick={handleSignOut}
+                                                                                                                                                                                    style={{
+                                                                                                                                                                                                              display: 'flex', alignItems: 'center', gap: '6px',
+                                                                                                                                                                                                              width: '100%', height: '32px', padding: '6px 4px',
+                                                                                                                                                                                                              fontSize: '14px', fontWeight: 400, lineHeight: '20px',
+                                                                                                                                                                                                              color: '#ef4239',
+                                                                                                                                                                                                              backgroundColor: 'transparent',
+                                                                                                                                                                                                              borderLeft: '4px solid transparent',
+                                                                                                                                                                                                              borderRadius: '14px',
+                                                                                                                                                                                                              border: 'none', cursor: 'pointer',
+                                                                                                                                                                                                              fontFamily: 'Mulish, sans-serif',
+                                                                                                                                                                                                              boxSizing: 'border-box',
+                                                                                                                                                                                                            }}
+                                                                                                                                                                                  >
+                                                                                                                                                                                  <Icon size={16} style={{ color: '#ef4239', flexShrink: 0, strokeWidth: 1.5 }} />
+                                                                                                                                                                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>span>
+                                                                                                                                                              </button>button>
+                                                                                                                                                          )
+                                                          }
+                                                      
+                                                                      return (
+                                                                        <Link
+                                                                                              key={item.href}
+                                                                                              href={href}
+                                                                                              style={{
+                                                                                                                      display: 'flex', alignItems: 'center', gap: '6px',
+                                                                                                                      width: '100%', height: '32px', padding: '6px 4px',
+                                                                                                                      fontSize: '14px',
+                                                                                                                      fontWeight: active ? 500 : 400,
+                                                                                                                      lineHeight: '20px',
+                                                                                                                      color: active ? '#ef4239' : '#e6e6e6',
+                                                                                                                      backgroundColor: active ? '#281615' : 'transparent',
+                                                                                                                      borderLeft: active ? '4px solid #ef4239' : '4px solid transparent',
+                                                                                                                      borderRadius: active ? '0px' : '14px',
+                                                                                                                      textDecoration: 'none',
+                                                                                                                      boxSizing: 'border-box',
+                                                                                                                      fontFamily: 'Mulish, sans-serif',
+                                                                                                                      whiteSpace: 'nowrap', overflow: 'hidden',
+                                                                                                }}
+                                                                                            >
+                                                                                            <Icon size={16} style={{
+                                                                                                                    color: active ? '#ef4239' : '#e6e6e6',
+                                                                                                                    flexShrink: 0, strokeWidth: 1.5,
+                                                                                              }} />
+                                                                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                                                                                              {item.label}
+                                                                                              </span>span>
+                                                                          {(item as any).external && (
+                                                                                                                    <ExternalLink size={12} style={{ color: '#666', flexShrink: 0 }} />
+                                                                                                                  )}
+                                                                        </Link>Link>
+                                                                      )
+                                                        })}
+                                                      </div>div>
+                                          </div>div>
+                                        ))}
+                                    </nav>nav>
+                              
+                                {/* Footer */}
+                                    <div style={{
+                                        padding: '8px', borderTop: '1px solid #292929',
+                                        textAlign: 'center', fontSize: '11px', color: '#424242',
+                                        fontFamily: 'Mulish, sans-serif', flexShrink: 0,
+                              }}>
+                                            v1.0.0
+                                    </div>div>
+                              </aside>aside>
+                            )
+                          }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <Suspense fallback={
-      <div style={{ display: 'flex', backgroundColor: '#111111', minHeight: '100vh' }}>
-        <div style={{ width: '200px', backgroundColor: '#1c1208', flexShrink: 0 }} />
-        <main style={{ flex: 1 }}>{children}</main>
-      </div>
-    }>
-      <SlugReader>
-        {(slug) => (
-          <div style={{ display: 'flex', backgroundColor: '#111111', minHeight: '100vh' }}>
-            <Sidebar slug={slug} />
-            <main style={{ flex: 1, marginLeft: '200px', minHeight: '100vh', overflow: 'auto' }}>
-              {children}
-            </main>
-          </div>
-        )}
-      </SlugReader>
-    </Suspense>
-  )
-}
+    return (
+          <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#111', fontFamily: 'Mulish, sans-serif' }}>
+                <Suspense fallback={
+                          <aside style={{ width: '208px', minWidth: '208px', backgroundColor: '#080808', borderRight: '1px solid #292929' }} />
+                }>
+                        <SlugReader>
+                          {(slug) => <Sidebar slug={slug} />}
+                        </SlugReader>SlugReader>
+                </Suspense>Suspense>
+                <main style={{ marginLeft: '208px', flex: 1, minHeight: '100vh', backgroundColor: '#111' }}>
+                  {children}
+                </main>main>
+          </div>div>
+        )
+}</>
