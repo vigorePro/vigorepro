@@ -1,6 +1,6 @@
 'use client'
+import { Suspense } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
 import {
   House, Wallet, Bike, UtensilsCrossed, ShoppingCart, ChefHat,
   ChartColumn, Smartphone, CreditCard, MessageCircle, BarChart2,
@@ -19,10 +19,10 @@ type NavGroup = {
   items: NavItem[]
 }
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+function SidebarContent() {
   const pathname = usePathname()
-  const searchParams = useSearchParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const slug = searchParams.get('slug') || ''
 
   const navGroups: NavGroup[] = [
@@ -78,6 +78,104 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
+    <>
+      {/* Logo */}
+      <div style={{
+        height: '65px',
+        display: 'flex',
+        alignItems: 'center',
+        padding: '16px',
+        borderBottom: '1px solid #424242',
+        flexShrink: 0
+      }}>
+        <div style={{
+          width: '32px',
+          height: '32px',
+          borderRadius: '8px',
+          backgroundColor: '#ef4239',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginRight: '8px',
+          flexShrink: 0
+        }}>
+          <span style={{ color: '#fff', fontWeight: 700, fontSize: '14px' }}>VP</span>
+        </div>
+        <div>
+          <div style={{ color: '#fff', fontWeight: 700, fontSize: '13px', lineHeight: '16px' }}>VigorePro</div>
+          <div style={{ color: '#888', fontSize: '11px', lineHeight: '14px' }}>estabelecimento</div>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav style={{ flex: 1, padding: '8px', overflowY: 'auto' }}>
+        {navGroups.map((group, groupIndex) => (
+          <div key={groupIndex}>
+            {groupIndex > 0 && (
+              <div style={{
+                height: '1px',
+                backgroundColor: '#424242',
+                margin: '4px 0'
+              }} />
+            )}
+            {group.items.map((item) => {
+              const active = isActive(item.href)
+              const Icon = item.icon
+              return (
+                <a
+                  key={item.label}
+                  href={item.external ? item.href : `${item.href}`}
+                  target={item.external ? '_blank' : undefined}
+                  rel={item.external ? 'noopener noreferrer' : undefined}
+                  onClick={!item.external ? (e) => {
+                    e.preventDefault()
+                    if (item.href) router.push(item.href)
+                  } : undefined}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 8px',
+                    height: '32px',
+                    borderRadius: active ? '0px' : '14px',
+                    backgroundColor: active ? '#281615' : 'transparent',
+                    color: active ? '#ef4239' : '#e6e6e6',
+                    fontWeight: active ? 500 : 400,
+                    fontSize: '14px',
+                    lineHeight: '20px',
+                    textDecoration: 'none',
+                    borderLeft: active ? '4px solid #ef4239' : '4px solid transparent',
+                    cursor: 'pointer',
+                    marginBottom: '2px',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <Icon size={16} strokeWidth={1.5} style={{ flexShrink: 0 }} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+                  {item.external && <ExternalLink size={10} strokeWidth={1.5} style={{ marginLeft: 'auto', opacity: 0.5, flexShrink: 0 }} />}
+                </a>
+              )
+            })}
+          </div>
+        ))}
+      </nav>
+
+      {/* Footer */}
+      <div style={{
+        padding: '8px 16px',
+        borderTop: '1px solid #292929',
+        color: '#424242',
+        fontSize: '11px',
+        flexShrink: 0
+      }}>
+        v1.0.0
+      </div>
+    </>
+  )
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'Mulish, sans-serif', backgroundColor: '#111' }}>
       <aside style={{
         width: '185px',
@@ -93,100 +191,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         overflowY: 'auto',
         zIndex: 50
       }}>
-        {/* Logo */}
-        <div style={{
-          height: '65px',
-          display: 'flex',
-          alignItems: 'center',
-          padding: '16px',
-          borderBottom: '1px solid #424242',
-          flexShrink: 0
-        }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            backgroundColor: '#ef4239',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: '8px',
-            flexShrink: 0
-          }}>
-            <span style={{ color: '#fff', fontWeight: 700, fontSize: '14px' }}>VP</span>
-          </div>
-          <div>
-            <div style={{ color: '#fff', fontWeight: 700, fontSize: '13px', lineHeight: '16px' }}>VigorePro</div>
-            <div style={{ color: '#888', fontSize: '11px', lineHeight: '14px' }}>estabelecimento</div>
-          </div>
-        </div>
-
-        {/* Nav */}
-        <nav style={{ flex: 1, padding: '8px 8px', overflowY: 'auto' }}>
-          {navGroups.map((group, groupIndex) => (
-            <div key={groupIndex}>
-              {groupIndex > 0 && (
-                <div style={{
-                  height: '1px',
-                  backgroundColor: '#424242',
-                  margin: '4px 0'
-                }} />
-              )}
-              {group.items.map((item) => {
-                const active = isActive(item.href)
-                const Icon = item.icon
-                return (
-                  <a
-                    key={item.label}
-                    href={item.external ? item.href : `${item.href}`}
-                    target={item.external ? '_blank' : undefined}
-                    rel={item.external ? 'noopener noreferrer' : undefined}
-                    onClick={!item.external ? (e) => {
-                      e.preventDefault()
-                      if (item.href) router.push(item.href)
-                    } : undefined}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '6px 8px',
-                      height: '32px',
-                      borderRadius: active ? '0px' : '14px',
-                      backgroundColor: active ? '#281615' : 'transparent',
-                      color: active ? '#ef4239' : '#e6e6e6',
-                      fontWeight: active ? 500 : 400,
-                      fontSize: '14px',
-                      lineHeight: '20px',
-                      textDecoration: 'none',
-                      borderLeft: active ? '4px solid #ef4239' : '4px solid transparent',
-                      cursor: 'pointer',
-                      marginBottom: '2px',
-                      boxSizing: 'border-box',
-                    }}
-                  >
-                    <Icon size={16} strokeWidth={1.5} style={{ flexShrink: 0 }} />
-                    <span style={{ flexShrink: 0 }}>{item.label}</span>
-                    {item.external && <ExternalLink size={10} strokeWidth={1.5} style={{ marginLeft: 'auto', opacity: 0.5 }} />}
-                  </a>
-                )
-              })}
-            </div>
-          ))}
-        </nav>
-
-        {/* Footer */}
-        <div style={{
-          padding: '8px 16px',
-          borderTop: '1px solid #292929',
-          color: '#424242',
-          fontSize: '11px',
-          flexShrink: 0
-        }}>
-          v1.0.0
-        </div>
+        <Suspense fallback={
+          <div style={{ padding: '16px', color: '#888', fontSize: '13px' }}>Carregando...</div>
+        }>
+          <SidebarContent />
+        </Suspense>
       </aside>
-
-      {/* Main content */}
       <main style={{ marginLeft: '185px', flex: 1, minHeight: '100vh', backgroundColor: '#111' }}>
         {children}
       </main>
