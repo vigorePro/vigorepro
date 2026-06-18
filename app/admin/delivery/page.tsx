@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, useCallback, useRef } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useSearchParams } from 'next/navigation'
-import { Clock, RefreshCw, ShoppingBag, User, MapPin, Phone, MoreVertical, Maximize2, ChevronRight } from 'lucide-react'
+import { Clock, RefreshCw, ShoppingBag, User, MapPin, MoreVertical, Maximize2, ChevronRight } from 'lucide-react'
 
 type StatusPedido = 'aguardando' | 'em_preparo' | 'pronto' | 'entregue' | 'cancelado'
 
@@ -27,19 +27,61 @@ interface Pedido {
   estabelecimento_id: string | null
 }
 
+// Cores exatas do BeeFood inspecionadas via DevTools
 const COLUNAS: {
   status: StatusPedido
   label: string
-  bg: string
-  count_bg: string
+  headerBg: string
+  headerText: string
+  countBg: string
   proximo: StatusPedido | null
   btnLabel: string
 }[] = [
-  { status: 'aguardando', label: 'Aguardando', bg: 'bg-[rgb(192,130,255)]', count_bg: 'bg-purple-200/60', proximo: 'em_preparo', btnLabel: 'Iniciar Preparo' },
-  { status: 'em_preparo', label: 'Em Preparo', bg: 'bg-[rgb(183,255,183)]', count_bg: 'bg-green-200/60', proximo: 'pronto', btnLabel: 'Marcar Pronto' },
-  { status: 'pronto', label: 'Pronto / Saiu', bg: 'bg-[rgb(255,255,202)]', count_bg: 'bg-yellow-200/60', proximo: 'entregue', btnLabel: 'Confirmar Entrega' },
-  { status: 'entregue', label: 'Entregue', bg: 'bg-[rgb(81,81,255)] text-white', count_bg: 'bg-blue-400/30', proximo: null, btnLabel: '' },
-  { status: 'cancelado', label: 'Cancelado', bg: 'bg-[rgb(255,107,107)]', count_bg: 'bg-red-200/60', proximo: null, btnLabel: '' },
+  {
+    status: 'aguardando',
+    label: 'Aguardando',
+    headerBg: 'rgb(192, 130, 255)',
+    headerText: '#020817',
+    countBg: 'rgba(160, 80, 255, 0.2)',
+    proximo: 'em_preparo',
+    btnLabel: 'Iniciar Preparo',
+  },
+  {
+    status: 'em_preparo',
+    label: 'Em Preparo',
+    headerBg: 'rgb(183, 255, 183)',
+    headerText: '#020817',
+    countBg: 'rgba(100, 220, 100, 0.3)',
+    proximo: 'pronto',
+    btnLabel: 'Marcar Pronto',
+  },
+  {
+    status: 'pronto',
+    label: 'Pronto / Saiu',
+    headerBg: 'rgb(255, 255, 202)',
+    headerText: '#020817',
+    countBg: 'rgba(220, 220, 100, 0.3)',
+    proximo: 'entregue',
+    btnLabel: 'Confirmar Entrega',
+  },
+  {
+    status: 'entregue',
+    label: 'Entregue',
+    headerBg: 'rgb(81, 81, 255)',
+    headerText: '#ffffff',
+    countBg: 'rgba(60, 60, 200, 0.3)',
+    proximo: null,
+    btnLabel: '',
+  },
+  {
+    status: 'cancelado',
+    label: 'Cancelado',
+    headerBg: 'rgb(255, 107, 107)',
+    headerText: '#020817',
+    countBg: 'rgba(200, 50, 50, 0.2)',
+    proximo: null,
+    btnLabel: '',
+  },
 ]
 
 function formatarTempo(data: string): string {
@@ -55,7 +97,13 @@ function formatarValor(v: number): string {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-function CardPedido({ pedido, onAvancar }: { pedido: Pedido; onAvancar: (id: string, status: StatusPedido) => void }) {
+function CardPedido({
+  pedido,
+  onAvancar,
+}: {
+  pedido: Pedido
+  onAvancar: (id: string, status: StatusPedido) => void
+}) {
   const coluna = COLUNAS.find(c => c.status === pedido.status)
   const [tempo, setTempo] = useState(() => formatarTempo(pedido.criado_em))
 
@@ -65,40 +113,40 @@ function CardPedido({ pedido, onAvancar }: { pedido: Pedido; onAvancar: (id: str
   }, [pedido.criado_em])
 
   return (
-    <div className="rounded-lg border bg-card text-card-foreground shadow transition-shadow relative cursor-pointer hover:shadow-md">
-      <div className="p-2 space-y-1.5">
+    <div className="rounded-lg border border-gray-200 bg-white shadow-sm transition-shadow relative cursor-pointer hover:shadow-md">
+      <div className="p-2.5 space-y-1.5">
         {/* Linha topo: número + menu */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="flex items-center gap-1 flex-shrink-0 text-gray-400">
               {pedido.tipo_entrega === 'delivery' ? (
-                <MapPin size={13} className="text-muted-foreground" />
+                <MapPin size={13} />
               ) : (
-                <ShoppingBag size={13} className="text-muted-foreground" />
+                <ShoppingBag size={13} />
               )}
             </div>
-            <span className="font-bold text-sm truncate min-w-0">#{pedido.numero_pedido}</span>
+            <span className="font-bold text-sm truncate min-w-0 text-gray-800">
+              #{pedido.numero_pedido}
+            </span>
           </div>
-          <button className="inline-flex items-center justify-center rounded-full text-sm font-medium h-6 w-6 hover:bg-accent hover:text-accent-foreground">
+          <button className="flex items-center justify-center rounded-full w-6 h-6 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors">
             <MoreVertical size={14} />
           </button>
         </div>
 
-        {/* Info do pedido */}
+        {/* Tipo de entrega */}
         <div className="space-y-0.5">
-          <div className="flex items-center gap-1.5">
-            <p className="font-semibold text-sm truncate min-w-0 flex-shrink">
-              {pedido.tipo_entrega === 'delivery' ? 'Delivery' : 'Retirada'}
-            </p>
-          </div>
+          <p className="font-semibold text-sm text-gray-700 truncate">
+            {pedido.tipo_entrega === 'delivery' ? 'Delivery' : 'Retirada'}
+          </p>
           {pedido.cliente_nome && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1 text-xs text-gray-500">
               <User size={10} />
               <span className="truncate">{pedido.cliente_nome}</span>
             </div>
           )}
           {pedido.endereco && pedido.tipo_entrega === 'delivery' && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1 text-xs text-gray-500">
               <MapPin size={10} />
               <span className="truncate">{pedido.endereco}</span>
             </div>
@@ -106,12 +154,12 @@ function CardPedido({ pedido, onAvancar }: { pedido: Pedido; onAvancar: (id: str
         </div>
 
         {/* Rodapé: tempo + valor */}
-        <div className="flex items-center justify-between pt-0.5">
-          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+        <div className="flex items-center justify-between pt-0.5 border-t border-gray-100">
+          <span className="flex items-center gap-1 text-xs text-gray-500">
             <Clock size={10} />
             {tempo}
           </span>
-          <p className="text-base font-bold text-foreground whitespace-nowrap">
+          <p className="text-base font-bold text-gray-900 whitespace-nowrap">
             {formatarValor(pedido.valor_total)}
           </p>
         </div>
@@ -119,8 +167,12 @@ function CardPedido({ pedido, onAvancar }: { pedido: Pedido; onAvancar: (id: str
         {/* Botão avançar status */}
         {coluna?.proximo && (
           <button
-            onClick={() => onAvancar(pedido.id, coluna.proximo!)}
-            className="w-full mt-1 flex items-center justify-center gap-1 rounded-md bg-primary text-primary-foreground text-xs py-1.5 font-medium hover:bg-primary/90 transition-colors"
+            onClick={e => {
+              e.stopPropagation()
+              onAvancar(pedido.id, coluna.proximo!)
+            }}
+            className="w-full flex items-center justify-center gap-1 rounded-md text-white text-xs py-1.5 font-medium transition-opacity hover:opacity-90"
+            style={{ backgroundColor: '#eb0029' }}
           >
             {coluna.btnLabel}
             <ChevronRight size={12} />
@@ -142,22 +194,31 @@ function KanbanColuna({
 }) {
   return (
     <div className="flex flex-col flex-shrink-0 transition-all" style={{ width: '300px' }}>
-      {/* Header da coluna */}
-      <div className={`flex items-center gap-2 mb-3 px-3 py-2 rounded-full flex-shrink-0 ${coluna.bg}`}>
+      {/* Header da coluna - cores exatas do BeeFood */}
+      <div
+        className="flex items-center gap-2 mb-3 px-3 py-2 rounded-full flex-shrink-0"
+        style={{ backgroundColor: coluna.headerBg, color: coluna.headerText }}
+      >
         <h3 className="font-semibold text-sm">{coluna.label}</h3>
-        <span className={`ml-auto px-2 py-0.5 rounded text-sm font-bold ${coluna.count_bg}`}>
+        <span
+          className="ml-auto px-2 py-0.5 rounded text-sm font-bold"
+          style={{ backgroundColor: coluna.countBg }}
+        >
           {pedidos.length}
         </span>
-        <button className="inline-flex items-center justify-center rounded-full text-sm font-medium h-6 w-6 hover:bg-black/10 ml-1">
-          <Maximize2 size={14} />
+        <button
+          className="flex items-center justify-center rounded-full w-6 h-6 hover:bg-black/10 ml-1 transition-colors"
+          title="Expandir coluna"
+        >
+          <Maximize2 size={13} />
         </button>
       </div>
 
       {/* Cards */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden pr-2 kanban-scroll">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden pr-2" style={{ scrollbarWidth: 'thin' }}>
         <div className="space-y-2">
           {pedidos.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground text-sm">
+            <div className="text-center py-8 text-gray-400 text-sm">
               Nenhum pedido
             </div>
           ) : (
@@ -181,112 +242,141 @@ function KanbanContent() {
   const [refreshing, setRefreshing] = useState(false)
   const estabelecimentoId = useRef<string | null>(null)
 
-  const carregarPedidos = useCallback(async (showRefresh = false) => {
-    if (showRefresh) setRefreshing(true)
-    if (!estabelecimentoId.current) {
-      const { data: est } = await supabase
-        .from('estabelecimentos')
-        .select('id')
-        .eq('slug', slug)
-        .single()
-      if (est) estabelecimentoId.current = est.id
-    }
-    if (!estabelecimentoId.current) { setLoading(false); if (showRefresh) setRefreshing(false); return }
+  const carregarPedidos = useCallback(
+    async (showRefresh = false) => {
+      if (showRefresh) setRefreshing(true)
 
-    const { data } = await supabase
-      .from('pedidos')
-      .select('*')
-      .eq('estabelecimento_id', estabelecimentoId.current)
-      .not('status', 'eq', 'entregue')
-      .order('criado_em', { ascending: false })
-      .limit(200)
+      if (!estabelecimentoId.current) {
+        const { data: est } = await supabase
+          .from('estabelecimentos')
+          .select('id')
+          .eq('slug', slug)
+          .single()
+        if (est) estabelecimentoId.current = est.id
+      }
 
-    if (data) setPedidos(data as Pedido[])
-    setLoading(false)
-    if (showRefresh) setRefreshing(false)
-  }, [slug, supabase])
+      if (!estabelecimentoId.current) {
+        setLoading(false)
+        if (showRefresh) setRefreshing(false)
+        return
+      }
+
+      const { data } = await supabase
+        .from('pedidos')
+        .select('*')
+        .eq('estabelecimento_id', estabelecimentoId.current)
+        .order('criado_em', { ascending: false })
+        .limit(300)
+
+      if (data) setPedidos(data as Pedido[])
+      setLoading(false)
+      if (showRefresh) setRefreshing(false)
+    },
+    [slug, supabase]
+  )
 
   useEffect(() => {
     carregarPedidos()
   }, [carregarPedidos])
 
+  // Realtime subscription
   useEffect(() => {
     if (!estabelecimentoId.current) return
     const channel = supabase
-      .channel('kanban-pedidos')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'pedidos',
-        filter: `estabelecimento_id=eq.${estabelecimentoId.current}`,
-      }, () => carregarPedidos())
+      .channel('kanban-delivery-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pedidos',
+          filter: `estabelecimento_id=eq.${estabelecimentoId.current}`,
+        },
+        () => carregarPedidos()
+      )
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [supabase, carregarPedidos])
 
-  const avancarStatus = useCallback(async (id: string, novoStatus: StatusPedido) => {
-    const agora = new Date().toISOString()
-    const updates: Record<string, string> = { status: novoStatus }
-    if (novoStatus === 'pronto') updates.produzido_em = agora
-    if (novoStatus === 'entregue') updates.entregue_em = agora
+  const avancarStatus = useCallback(
+    async (id: string, novoStatus: StatusPedido) => {
+      const agora = new Date().toISOString()
+      const updates: Record<string, string> = { status: novoStatus }
+      if (novoStatus === 'pronto') updates.produzido_em = agora
+      if (novoStatus === 'entregue') updates.entregue_em = agora
+      await supabase.from('pedidos').update(updates).eq('id', id)
+      setPedidos(prev =>
+        prev.map(p => (p.id === id ? { ...p, status: novoStatus, ...updates } : p))
+      )
+    },
+    [supabase]
+  )
 
-    await supabase.from('pedidos').update(updates).eq('id', id)
-    setPedidos(prev => prev.map(p => p.id === id ? { ...p, status: novoStatus, ...updates } : p))
-  }, [supabase])
-
-  const pedidosFiltrados = busca
-    ? pedidos.filter(p =>
-        p.numero_pedido?.toString().includes(busca) ||
-        p.cliente_nome?.toLowerCase().includes(busca.toLowerCase())
+  const pedidosFiltrados = busca.trim()
+    ? pedidos.filter(
+        p =>
+          p.numero_pedido?.toString().includes(busca) ||
+          p.cliente_nome?.toLowerCase().includes(busca.toLowerCase())
       )
     : pedidos
 
-  const pedidosHoje = pedidos.filter(p => {
+  const totalHoje = pedidos.filter(p => {
     const hoje = new Date().toDateString()
     return new Date(p.criado_em).toDateString() === hoje
-  })
+  }).length
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <RefreshCw className="animate-spin text-muted-foreground" size={24} />
+      <div className="flex-1 flex items-center justify-center bg-gray-50">
+        <RefreshCw className="animate-spin text-gray-400" size={24} />
       </div>
     )
   }
 
   return (
-    <div className="flex-1 bg-muted/60 overflow-hidden flex flex-col my-0">
+    <div className="flex-1 overflow-hidden flex flex-col">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-3 bg-background border-b flex-shrink-0 flex-wrap">
-        <button className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors">
-          + Novo Pedido <span className="text-xs opacity-70">(F1)</span>
+      <div className="flex items-center gap-2 px-4 py-3 bg-white border-b border-gray-200 flex-shrink-0 flex-wrap">
+        <button
+          className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+          style={{ backgroundColor: '#eb0029' }}
+        >
+          + Novo Pedido
+          <span className="text-xs opacity-70">(F1)</span>
         </button>
+
         <div className="relative">
           <input
             type="text"
             placeholder="Buscar pedido..."
             value={busca}
             onChange={e => setBusca(e.target.value)}
-            className="flex h-9 rounded-full border border-input bg-background px-4 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-48"
+            className="h-9 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 w-48 placeholder:text-gray-400"
           />
         </div>
+
         <button
           onClick={() => carregarPedidos(true)}
-          className="inline-flex items-center justify-center rounded-full h-9 w-9 border hover:bg-muted transition-colors"
+          className="flex items-center justify-center rounded-full h-9 w-9 border border-gray-300 bg-white hover:bg-gray-50 transition-colors text-gray-600"
+          title="Atualizar"
         >
           <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
         </button>
-        <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <ShoppingBag size={14} />
-            {pedidosHoje.length} hoje
-          </span>
+
+        <div className="ml-auto flex items-center gap-1 text-sm text-gray-500">
+          <ShoppingBag size={14} />
+          <span>{totalHoje} hoje</span>
         </div>
       </div>
 
-      {/* Kanban Board */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden min-h-0 bg-[hsl(220,13%,91%)]">
-        <div className="flex gap-4 h-full px-6 w-max bg-muted py-4">
+      {/* Kanban Board - fundo cinza exato do BeeFood: hsl(220,13%,91%) */}
+      <div
+        className="flex-1 overflow-x-auto overflow-y-hidden min-h-0"
+        style={{ backgroundColor: 'hsl(220, 13%, 91%)' }}
+      >
+        <div className="flex gap-4 h-full px-6 py-4 w-max">
           {COLUNAS.map(coluna => (
             <KanbanColuna
               key={coluna.status}
@@ -303,11 +393,13 @@ function KanbanContent() {
 
 export default function DeliveryPage() {
   return (
-    <Suspense fallback={
-      <div className="flex-1 flex items-center justify-center">
-        <RefreshCw className="animate-spin text-muted-foreground" size={24} />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex-1 flex items-center justify-center bg-gray-50">
+          <RefreshCw className="animate-spin text-gray-400" size={24} />
+        </div>
+      }
+    >
       <KanbanContent />
     </Suspense>
   )
