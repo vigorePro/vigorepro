@@ -89,7 +89,16 @@ function DashContent() {
     setCarregando(false)
   }, [slug])
 
-  useEffect(() => { fetchDados(); const i = setInterval(fetchDados, 30000); return () => clearInterval(i) }, [fetchDados])
+  useEffect(() => {
+    fetchDados()
+    const i = setInterval(fetchDados, 30000)
+    // Supabase Realtime
+    if (!slug) return
+    const ch = supabase.channel('dash-' + slug)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, () => { fetchDados() })
+      .subscribe()
+    return () => { clearInterval(i); supabase.removeChannel(ch) }
+  }, [fetchDados, slug])
 
   const maxVenda = Math.max(...vendasSemana.map(v => v.total), 1)
   const varReceita = stats.receitaOntem > 0 ? ((stats.receitaHoje - stats.receitaOntem) / stats.receitaOntem * 100) : 0
