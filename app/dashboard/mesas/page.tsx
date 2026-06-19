@@ -62,7 +62,18 @@ function MesasContent() {
   }, [estabelecimentoId])
 
   useEffect(() => { fetchEstabelecimento() }, [fetchEstabelecimento])
-  useEffect(() => { if (estabelecimentoId) { fetchDados(); const i = setInterval(fetchDados, 30000); return () => clearInterval(i) } }, [estabelecimentoId, fetchDados])
+  useEffect(() => {
+    if (!estabelecimentoId) return
+    fetchDados()
+    const interval = setInterval(fetchDados, 30000)
+    // Supabase Realtime
+    const channel = supabase
+      .channel('mesas-' + estabelecimentoId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mesas', filter: 'estabelecimento_id=eq.' + estabelecimentoId }, () => { fetchDados() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comandas', filter: 'estabelecimento_id=eq.' + estabelecimentoId }, () => { fetchDados() })
+      .subscribe()
+    return () => { clearInterval(interval); supabase.removeChannel(channel) }
+  }, [estabelecimentoId, fetchDados])
 
   const criarMesa = async () => {
     if (!novaMesa.numero || !estabelecimentoId) return
