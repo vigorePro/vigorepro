@@ -79,8 +79,12 @@ function PixContent() {
 
   useEffect(() => {
     if (!estabelecimentoId) return
-    const load = async () => { setLoading(true); await fetchTransacoes(estabelecimentoId); setLoading(false) }
-    load()
+    fetchTransacoes(estabelecimentoId)
+    const channel = supabase
+      .channel('pix-' + estabelecimentoId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transacoes_pix', filter: 'estabelecimento_id=eq.' + estabelecimentoId }, () => { fetchTransacoes(estabelecimentoId) })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
   }, [estabelecimentoId, fetchTransacoes])
 
   const entradas = transacoes.filter(t => t.tipo === 'entrada' && t.status === 'concluido')
