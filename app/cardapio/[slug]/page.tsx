@@ -1,7 +1,7 @@
 'use client'
-import { Suspense, useState, useEffect, useCallback } from 'react'
+import { Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { ShoppingCart, Search, ChevronRight, Plus, Minus, X, MapPin, Clock, Star, Phone, Bike, Package, ArrowLeft, Check } from 'lucide-react'
+import { ShoppingCart, Search, ChevronRight, Plus, Minus, X, MapPin, Clock, Star, Phone, Bike, Package, ArrowLeft, Check, MessageCircle, Send } from 'lucide-react'
 
 type Produto = {
   id: string
@@ -55,6 +55,16 @@ function CardapioPublico({ params }: { params: { slug: string } }) {
   const [qtdItem, setQtdItem] = useState(1)
   const [carregando, setCarregando] = useState(true)
   const [pedidoEnviado, setPedidoEnviado] = useState(false)
+  // IA Chat state
+  const [chatAberto, setChatAberto] = useState(false)
+  const [chatMensagens, setChatMensagens] = useState<{role: 'user'|'assistant', content: string}[]>([
+    { role: 'assistant', content: 'Ola! Sou a MEL, assistente da ' + (config?.nome || 'nossa loja') + '. Como posso ajudar? :)' }
+  ])
+  const [chatInput, setChatInput] = useState('')
+  const [chatCarregando, setChatCarregando] = useState(false)
+  const [chatSessionId] = useState(() => 'web_' + Date.now() + '_' + Math.random().toString(36).substr(2,9))
+  const chatEndRef = useRef<HTMLDivElement>(null)
+
   const [tipoEntrega, setTipoEntrega] = useState<'delivery' | 'retirada'>('delivery')
   const [formCliente, setFormCliente] = useState({ nome: '', telefone: '', endereco: '', pagamento: 'dinheiro', troco: '' })
 
@@ -138,6 +148,29 @@ function CardapioPublico({ params }: { params: { slug: string } }) {
       </div>
     </div>
   )
+
+
+  const enviarMensagemChat = async () => {
+    if (!chatInput.trim() || chatCarregando) return
+    const msg = chatInput.trim()
+    setChatInput('')
+    setChatMensagens(prev => [...prev, { role: 'user', content: msg }])
+    setChatCarregando(true)
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mensagem: msg, slug: params.slug, sessionId: chatSessionId })
+      })
+      const data = await res.json()
+      setChatMensagens(prev => [...prev, { role: 'assistant', content: data.resposta || 'Desculpe, tente novamente.' }])
+    } catch {
+      setChatMensagens(prev => [...prev, { role: 'assistant', content: 'Erro ao conectar. Tente novamente.' }])
+    } finally {
+      setChatCarregando(false)
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+    }
+  }
 
   return (
     <div style={{ fontFamily: 'Mulish, sans-serif', background: '#f5f5f5', minHeight: '100vh' }}>
@@ -407,6 +440,66 @@ function CardapioPublico({ params }: { params: { slug: string } }) {
           }}>Fazer novo pedido</button>
         </div>
       )}
+
+      {/* CHAT IA FLUTUANTE */}
+      <div style={{ position: 'fixed', bottom: 24, right: 20, zIndex: 999, fontFamily: 'Mulish, sans-serif' }}>
+        {chatAberto && (
+          <div style={{ position: 'absolute', bottom: 68, right: 0, width: 320, height: 420, background: '#fff', borderRadius: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '1px solid #eee' }}>
+            {/* Header */}
+            <div style={{ background: corPrimaria, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>M</div>
+                <div>
+                  <div style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>MEL - Assistente IA</div>
+                  <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11 }}>Online agora</div>
+                </div>
+              </div>
+              <button onClick={() => setChatAberto(false)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: 4 }}><X size={18} /></button>
+            </div>
+            {/* Messages */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {chatMensagens.map((m, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                  <div style={{
+                    maxWidth: '80%', padding: '8px 12px', borderRadius: m.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+                    background: m.role === 'user' ? corPrimaria : '#f3f4f6', color: m.role === 'user' ? '#fff' : '#111',
+                    fontSize: 13, lineHeight: 1.5
+                  }}>{m.content}</div>
+                </div>
+              ))}
+              {chatCarregando && (
+                <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                  <div style={{ background: '#f3f4f6', borderRadius: '12px 12px 12px 2px', padding: '8px 14px', fontSize: 20, color: '#999' }}>...</div>
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+            {/* Input */}
+            <div style={{ padding: '10px 12px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 8 }}>
+              <input
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && enviarMensagemChat()}
+                placeholder="Digite sua mensagem..."
+                style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: 20, padding: '8px 14px', fontSize: 13, outline: 'none', fontFamily: 'Mulish, sans-serif' }}
+              />
+              <button onClick={enviarMensagemChat} disabled={chatCarregando} style={{ width: 36, height: 36, borderRadius: '50%', background: corPrimaria, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Send size={15} color="#fff" />
+              </button>
+            </div>
+          </div>
+        )}
+        {/* Toggle button */}
+        <button
+          onClick={() => setChatAberto(!chatAberto)}
+          style={{ width: 56, height: 56, borderRadius: '50%', background: corPrimaria, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', position: 'relative' }}
+        >
+          {chatAberto ? <X size={22} color="#fff" /> : <MessageCircle size={22} color="#fff" />}
+          {!chatAberto && chatMensagens.length > 1 && (
+            <div style={{ position: 'absolute', top: 0, right: 0, width: 18, height: 18, background: '#ef4444', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff', fontWeight: 700 }}>{chatMensagens.filter(m => m.role === 'assistant').length}</div>
+          )}
+        </button>
+      </div>
     </div>
   )
 }
