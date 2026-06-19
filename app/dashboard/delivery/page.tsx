@@ -181,9 +181,22 @@ function DeliveryContent() {
       setLoading(false)
     }
     load()
-    // Auto refresh a cada 30s
-    intervalRef.current = setInterval(() => fetchPedidos(estabelecimentoId), 30000)
-    return () => clearInterval(intervalRef.current)
+    // Supabase Realtime - ouvir mudancas em pedidos
+    const channel = supabase
+      .channel('delivery-pedidos-' + estabelecimentoId)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'pedidos',
+        filter: 'estabelecimento_id=eq.' + estabelecimentoId
+      }, () => { fetchPedidos(estabelecimentoId) })
+      .subscribe()
+    // Fallback: auto refresh a cada 15s
+    intervalRef.current = setInterval(() => fetchPedidos(estabelecimentoId), 15000)
+    return () => {
+      clearInterval(intervalRef.current)
+      supabase.removeChannel(channel)
+    }
   }, [estabelecimentoId, fetchPedidos])
 
   const moverStatus = async (pedidoId: string, novoStatus: string) => {
