@@ -1,10 +1,15 @@
 'use client'
+
 import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { BarChart3, TrendingUp, TrendingDown, ShoppingBag, Users, DollarSign, RefreshCw, Star } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import {
+  BarChart3, TrendingUp, TrendingDown, ShoppingCart, DollarSign,
+  Users, Clock, Star, Package, ChevronDown, RefreshCw, Calendar,
+  Bike, UtensilsCrossed, ShoppingBag, CreditCard, Banknote, Smartphone
+} from 'lucide-react'
 
-type PedidoData = {
+interface PedidoData {
   id: string
   total: number
   created_at: string
@@ -14,77 +19,93 @@ type PedidoData = {
   tipo: string
 }
 
-type ItemData = {
-  id: string
-  nome: string
+interface ItemData {
+  produto_nome: string
   quantidade: number
-  preco: number
+  preco_unitario: number
 }
+
+// Status que contam como pedidos realizados
+const STATUS_VALIDOS = ['entregue', 'concluido', 'finalizado', 'pronto', 'saiu_para_entrega', 'em_preparo', 'aceito', 'confirmado']
 
 function DesempenhoContent() {
   const searchParams = useSearchParams()
   const slug = searchParams.get('slug') || ''
-
-  const [periodo, setPeriodo] = useState<'hoje' | '7dias' | '30dias' | '3meses'>('30dias')
+  const [estabelecimentoId, setEstabelecimentoId] = useState('')
   const [pedidos, setPedidos] = useState<PedidoData[]>([])
   const [itens, setItens] = useState<ItemData[]>([])
+  const [periodo, setPeriodo] = useState('7')
   const [loading, setLoading] = useState(true)
-  const [estabelecimentoId, setEstabelecimentoId] = useState('')
+  const [ultimaAtual, setUltimaAtual] = useState('')
 
-  const fetchEstabelecimento = useCallback(async () => {
+  useEffect(() => {
     if (!slug) return
-    const { data } = await supabase.from('estabelecimentos').select('id').eq('slug', slug).single()
-    if (data) setEstabelecimentoId(data.id)
+    supabase.from('estabelecimentos').select('id').eq('slug', slug).single()
+      .then(({ data }) => { if (data) setEstabelecimentoId(data.id) })
   }, [slug])
 
-  const getDateFilter = useCallback(() => {
-    const now = new Date()
-    if (periodo === 'hoje') { const d = new Date(); d.setHours(0,0,0,0); return d.toISOString() }
-    if (periodo === '7dias') { const d = new Date(); d.setDate(now.getDate()-7); return d.toISOString() }
-    if (periodo === '30dias') { const d = new Date(); d.setDate(now.getDate()-30); return d.toISOString() }
-    const d = new Date(); d.setMonth(now.getMonth()-3); return d.toISOString()
-  }, [periodo])
+  const fetchData = useCallback(async () => {
+    if (!estabelecimentoId) return
+    setLoading(true)
+    const dateFilter = new Date()
+    dateFilter.setDate(dateFilter.getDate() - parseInt(periodo))
+    const dateStr = dateFilter.toISOString()
 
-  const fetchData = useCallback(async (estId: string) => {
-    const dateFilter = getDateFilter()
     const [pedidosRes, itensRes] = await Promise.all([
       supabase.from('pedidos').select('id, total, created_at, status, forma_pagamento, cliente_nome, tipo')
-        .eq('estabelecimento_id', estId)
-        .eq('status', 'entregue')
-        .gte('created_at', dateFilter)
-        .order('created_at', { ascending: true }),
-      supabase.from('itens_comanda').select('id, nome, quantidade, preco')
+        .eq('estabelecimento_id', estabelecimentoId)
+        .gte('created_at', dateStr)
+        .not('status', 'in', '(cancelado,recusado)'),
+      supabase.from('itens_pedido').select('produto_nome, quantidade, preco_unitario')
         .in('pedido_id',
-          (await supabase.from('pedidos').select('id').eq('estabelecimento_id', estId).gte('created_at', dateFilter).eq('status', 'entregue')).data?.map(p => p.id) || []
+          (await supabase.from('pedidos').select('id')
+            .eq('estabelecimento_id', estabelecimentoId)
+            .gte('created_at', dateStr)
+            .not('status', 'in', '(cancelado,recusado)')).data?.map(p => p.id) || []
         )
     ])
     setPedidos(pedidosRes.data || [])
     setItens(itensRes.data || [])
-  }, [getDateFilter])
+    setUltimaAtual(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }))
+    setLoading(false)
+  }, [estabelecimentoId, periodo])
 
-  useEffect(() => { fetchEstabelecimento() }, [fetchEstabelecimento])
-
-  useEffect(() => {
-    if (!estabelecimentoId) return
-    const load = async () => { setLoading(true); await fetchData(estabelecimentoId); setLoading(false) }
-    load()
-  }, [estabelecimentoId, fetchData])
+  useEffect(() => { fetchData() }, [fetchData])
 
   // Calculos
   const totalReceita = pedidos.reduce((acc, p) => acc + Number(p.total), 0)
   const totalPedidos = pedidos.length
   const ticketMedio = totalPedidos > 0 ? totalReceita / totalPedidos : 0
-  const clientesUnicos = new Set(pedidos.map(p => p.cliente_nome)).size
+  const clientesUnicos = new Set(pedidos.filter(p => p.cliente_nome).map(p => p.cliente_nome)).size
 
   // Formas de pagamento
-  const formasPgto = pedidos.reduce((acc, p) => {
-    const forma = p.forma_pagamento || 'Outros'
-    acc[forma] = (acc[forma] || 0) + Number(p.total)
+  const formasPgto = pedidos.reduce((acc: Record<string, number>, p) => {
+    const forma = p.forma_pagamento || 'outros'
+    acc[forma] = (acc[forma] || 0) + 1
     return acc
-  }, {} as Record<string, number>)
-  const formasSorted = Object.entries(formasPgto).sort((a, b) => b[1] - a[1])
+  }, {})
 
-  // Horarios de pico
+  // Tipos de pedido
+  const tiposPedido = pedidos.reduce((acc: Record<string, number>, p) => {
+    const tipo = p.tipo || 'balcao'
+    acc[tipo] = (acc[tipo] || 0) + 1
+    return acc
+  }, {})
+
+  // Mais vendidos
+  const maisVendidos = itens.reduce((acc: Record<string, { qtd: number, receita: number }>, item) => {
+    const nome = item.produto_nome || 'Produto'
+    if (!acc[nome]) acc[nome] = { qtd: 0, receita: 0 }
+    acc[nome].qtd += item.quantidade
+    acc[nome].receita += item.quantidade * Number(item.preco_unitario)
+    return acc
+  }, {})
+  const topProdutos = Object.entries(maisVendidos)
+    .map(([nome, data]) => ({ nome, ...data }))
+    .sort((a, b) => b.qtd - a.qtd)
+    .slice(0, 8)
+
+  // Pedidos por hora
   const horarios = Array.from({ length: 24 }, (_, h) => ({
     hora: h,
     pedidos: pedidos.filter(p => new Date(p.created_at).getHours() === h).length
@@ -92,172 +113,225 @@ function DesempenhoContent() {
   const horarioPico = horarios.reduce((max, h) => h.pedidos > max.pedidos ? h : max, { hora: 0, pedidos: 0 })
   const maxHora = Math.max(...horarios.map(h => h.pedidos), 1)
 
-  // Produtos mais vendidos
-  const produtosMap = itens.reduce((acc, i) => {
-    if (!acc[i.nome]) acc[i.nome] = { nome: i.nome, qtd: 0, total: 0 }
-    acc[i.nome].qtd += i.quantidade
-    acc[i.nome].total += i.quantidade * i.preco
-    return acc
-  }, {} as Record<string, { nome: string; qtd: number; total: number }>)
-  const produtosSorted = Object.values(produtosMap).sort((a, b) => b.qtd - a.qtd).slice(0, 8)
+  // Vendas por dia (ultimos N dias)
+  const diasLabels: Record<string, number> = {}
+  for (let i = parseInt(periodo) - 1; i >= 0; i--) {
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    const key = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+    diasLabels[key] = 0
+  }
+  pedidos.forEach(p => {
+    const key = new Date(p.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+    if (key in diasLabels) diasLabels[key] += Number(p.total)
+  })
+  const diasData = Object.entries(diasLabels)
+  const maxDia = Math.max(...diasData.map(([, v]) => v), 1)
 
-  // Tipos delivery vs mesa
-  const deliveryCount = pedidos.filter(p => p.tipo === 'delivery').length
-  const mesaCount = pedidos.filter(p => p.tipo === 'mesa' || p.tipo === 'comanda').length
+  const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-  // Horas para exibir no grafico (faixa de pico)
-  const horasExibir = Array.from({ length: 14 }, (_, i) => i + 10) // 10h-23h
-  const pedidosPorHora = horasExibir.map(h => ({
-    h,
-    qtd: pedidos.filter(p => new Date(p.created_at).getHours() === h).length
-  }))
-  const maxGrafico = Math.max(...pedidosPorHora.map(h => h.qtd), 1)
+  const formaIcon = (forma: string) => {
+    if (forma.includes('pix')) return <Smartphone size={13} color="#22c55e" />
+    if (forma.includes('credito')) return <CreditCard size={13} color="#6366f1" />
+    if (forma.includes('debito')) return <CreditCard size={13} color="#8b5cf6" />
+    if (forma.includes('dinheiro')) return <Banknote size={13} color="#f59e0b" />
+    return <CreditCard size={13} color="#888" />
+  }
 
-  const CORES_PGTO = ['#6366f1', '#22c55e', '#f59e0b', '#ef4239', '#ec4899', '#14b8a6']
+  const tipoIcon = (tipo: string) => {
+    if (tipo === 'delivery') return <Bike size={13} color="#ef4239" />
+    if (tipo === 'mesa') return <UtensilsCrossed size={13} color="#8b5cf6" />
+    return <ShoppingBag size={13} color="#22c55e" />
+  }
 
   return (
-    <div style={{ padding: '24px', fontFamily: 'Mulish, sans-serif', color: '#e6e6e6', minHeight: '100vh' }}>
+    <div style={{ fontFamily: 'Mulish, sans-serif', backgroundColor: '#111', minHeight: '100vh', color: '#fff', padding: '24px' }}>
+      
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-            <BarChart3 size={22} color="#ef4239" />
-            <span style={{ fontSize: '20px', fontWeight: 700, color: '#fff' }}>Desempenho</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: '#1a1a1a', border: '1px solid #292929', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <BarChart3 size={20} color="#ef4239" />
           </div>
-          <span style={{ fontSize: '13px', color: '#666' }}>Analise de vendas e metricas do negocio</span>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#fff' }}>Desempenho</h1>
+            <p style={{ margin: 0, fontSize: 13, color: '#888' }}>Analise completa de vendas e metricas do negocio</p>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '4px', background: '#1a1a1a', border: '1px solid #292929', borderRadius: '10px', padding: '4px' }}>
-          {(['hoje', '7dias', '30dias', '3meses'] as const).map(p => (
-            <button key={p} onClick={() => setPeriodo(p)}
-              style={{ padding: '7px 14px', border: 'none', borderRadius: '7px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, fontFamily: 'Mulish, sans-serif',
-                background: periodo === p ? '#ef4239' : 'transparent', color: periodo === p ? '#fff' : '#999' }}>
-              {p === 'hoje' ? 'Hoje' : p === '7dias' ? '7 dias' : p === '30dias' ? '30 dias' : '3 meses'}
-            </button>
-          ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {ultimaAtual && <span style={{ fontSize: 12, color: '#666' }}>Atualizado: {ultimaAtual}</span>}
+          <button onClick={fetchData} style={{ padding: '7px 12px', backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 6, color: '#888', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+            <RefreshCw size={14} />
+          </button>
+          <select
+            value={periodo}
+            onChange={e => setPeriodo(e.target.value)}
+            style={{ padding: '7px 12px', backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 6, color: '#fff', fontSize: 13, cursor: 'pointer' }}
+          >
+            <option value="7">Ultimos 7 dias</option>
+            <option value="15">Ultimos 15 dias</option>
+            <option value="30">Ultimos 30 dias</option>
+            <option value="90">Ultimos 90 dias</option>
+          </select>
         </div>
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', color: '#666', padding: '60px', fontSize: '14px' }}>Carregando dados...</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300 }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ width: 36, height: 36, border: '3px solid #333', borderTopColor: '#ef4239', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+            <p style={{ color: '#888', margin: 0, fontSize: 14 }}>Carregando dados...</p>
+          </div>
+        </div>
       ) : (
         <>
           {/* KPIs */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 24 }}>
             {[
-              { label: 'Receita Total', value: 'R$ ' + totalReceita.toLocaleString('pt-BR', { minimumFractionDigits: 2 }), icon: <DollarSign size={18} color="#22c55e" />, sub: totalPedidos + ' pedidos finalizados' },
-              { label: 'Total de Pedidos', value: totalPedidos, icon: <ShoppingBag size={18} color="#6366f1" />, sub: deliveryCount + ' delivery, ' + mesaCount + ' mesa' },
-              { label: 'Ticket Medio', value: 'R$ ' + ticketMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2 }), icon: <TrendingUp size={18} color="#f59e0b" />, sub: 'por pedido entregue' },
-              { label: 'Clientes Unicos', value: clientesUnicos, icon: <Users size={18} color="#ef4239" />, sub: 'clientes distintos' },
-            ].map((card, i) => (
-              <div key={i} style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: '12px', padding: '18px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                  {card.icon}
-                  <span style={{ fontSize: '13px', color: '#999' }}>{card.label}</span>
+              { label: 'Receita Total', value: fmt(totalReceita), icon: DollarSign, cor: '#22c55e', sub: `${totalPedidos} pedidos` },
+              { label: 'Pedidos', value: totalPedidos.toString(), icon: ShoppingCart, cor: '#6366f1', sub: `Em ${periodo} dias` },
+              { label: 'Ticket Medio', value: fmt(ticketMedio), icon: TrendingUp, cor: '#f59e0b', sub: 'Por pedido' },
+              { label: 'Clientes Unicos', value: clientesUnicos.toString(), icon: Users, cor: '#ec4899', sub: 'Compraram no periodo' },
+              { label: 'Horario de Pico', value: horarioPico.pedidos > 0 ? `${horarioPico.hora}h` : '-', icon: Clock, cor: '#ef4239', sub: horarioPico.pedidos > 0 ? `${horarioPico.pedidos} pedidos` : 'Sem dados' },
+              { label: 'Itens Vendidos', value: itens.reduce((a, i) => a + i.quantidade, 0).toString(), icon: Package, cor: '#06b6d4', sub: `${topProdutos.length} produtos distintos` },
+            ].map(kpi => (
+              <div key={kpi.label} style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 10, padding: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <span style={{ fontSize: 12, color: '#888' }}>{kpi.label}</span>
+                  <div style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: kpi.cor + '22', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <kpi.icon size={15} color={kpi.cor} />
+                  </div>
                 </div>
-                <div style={{ fontSize: '22px', fontWeight: 700, color: '#fff' }}>{card.value}</div>
-                <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>{card.sub}</div>
+                <p style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 800, color: '#fff' }}>{kpi.value}</p>
+                <p style={{ margin: 0, fontSize: 11, color: '#666' }}>{kpi.sub}</p>
               </div>
             ))}
           </div>
 
-          {pedidos.length === 0 ? (
-            <div style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: '12px', padding: '60px', textAlign: 'center', color: '#666', fontSize: '14px' }}>
-              Nenhum pedido entregue no periodo selecionado.
+          {totalPedidos === 0 ? (
+            <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 10, padding: 60, textAlign: 'center' }}>
+              <BarChart3 size={48} color="#333" style={{ marginBottom: 16 }} />
+              <p style={{ color: '#888', fontSize: 16, margin: '0 0 8px', fontWeight: 600 }}>Nenhum pedido encontrado</p>
+              <p style={{ color: '#666', fontSize: 13, margin: 0 }}>Os dados aparecerao aqui assim que houver pedidos no periodo selecionado.</p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              {/* Grafico horarios */}
-              <div style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: '12px', padding: '20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4239' }} />
-                    <span style={{ fontSize: '14px', fontWeight: 600, color: '#e6e6e6' }}>Horarios de Pico</span>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '120px', marginBottom: '8px' }}>
-                  {pedidosPorHora.map(({ h, qtd }) => (
-                    <div key={h} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
-                      <div style={{ width: '100%', background: h === horarioPico.hora && horarioPico.pedidos > 0 ? '#ef4239' : 'rgba(239,66,57,0.3)', borderRadius: '3px 3px 0 0', height: (qtd / maxGrafico * 100) + 'px', minHeight: qtd > 0 ? '4px' : '0', transition: 'height 0.3s' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              
+              {/* Grafico vendas por dia */}
+              <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 10, padding: 20 }}>
+                <p style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <TrendingUp size={16} color="#ef4239" />
+                  Vendas por Dia (R$)
+                </p>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 120, overflowX: 'auto' }}>
+                  {diasData.map(([dia, valor]) => (
+                    <div key={dia} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flex: '0 0 auto', minWidth: 32 }}>
+                      <span style={{ fontSize: 9, color: '#666' }}>{valor > 0 ? 'R$' + Math.round(valor) : ''}</span>
+                      <div style={{ width: 20, backgroundColor: valor > 0 ? '#ef4239' : '#292929', borderRadius: '3px 3px 0 0', height: `${Math.max((valor / maxDia) * 90, valor > 0 ? 4 : 2)}px` }} />
+                      <span style={{ fontSize: 9, color: '#555', transform: 'rotate(-45deg)', transformOrigin: 'center' }}>{dia}</span>
                     </div>
                   ))}
                 </div>
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  {pedidosPorHora.map(({ h }) => (
-                    <div key={h} style={{ flex: 1, textAlign: 'center', fontSize: '10px', color: '#555' }}>{h}h</div>
-                  ))}
-                </div>
-                {horarioPico.pedidos > 0 && (
-                  <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#999' }}>
-                    <span>Pico: <span style={{ color: '#ef4239', fontWeight: 700 }}>{horarioPico.hora}h ({horarioPico.pedidos} pedidos)</span></span>
-                    <span style={{ color: '#22c55e' }}>Media: {(totalPedidos / Math.max(horarios.length, 1)).toFixed(1)} por hora ativa</span>
+              </div>
+
+              {/* Pedidos por hora */}
+              <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 10, padding: 20 }}>
+                <p style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Clock size={16} color="#6366f1" />
+                  Pedidos por Horario
+                </p>
+                {horarios.length === 0 ? (
+                  <p style={{ color: '#666', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Sem dados de horario</p>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 120 }}>
+                    {horarios.map(h => (
+                      <div key={h.hora} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flex: 1 }}>
+                        <span style={{ fontSize: 9, color: '#666' }}>{h.pedidos}</span>
+                        <div style={{ width: '100%', backgroundColor: h.hora === horarioPico.hora ? '#ef4239' : '#6366f155', borderRadius: '3px 3px 0 0', height: `${Math.max((h.pedidos / maxHora) * 90, 4)}px` }} />
+                        <span style={{ fontSize: 9, color: '#555' }}>{h.hora}h</span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
 
-              {/* Formas de pagamento */}
-              <div style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: '12px', padding: '20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                  <DollarSign size={16} color="#ef4239" />
-                  <span style={{ fontSize: '14px', fontWeight: 600, color: '#e6e6e6' }}>Formas de Pagamento</span>
-                </div>
-                {formasSorted.length === 0 ? (
-                  <p style={{ color: '#666', fontSize: '13px' }}>Sem dados de pagamento.</p>
-                ) : formasSorted.map(([forma, total], i) => {
-                  const pct = totalReceita > 0 ? (total / totalReceita * 100) : 0
-                  return (
-                    <div key={forma} style={{ marginBottom: '14px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '13px', color: '#999' }}>{forma}</span>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#e6e6e6' }}>
-                          R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} <span style={{ color: '#666', fontWeight: 400 }}>({pct.toFixed(0)}%)</span>
-                        </span>
+              {/* Mais vendidos */}
+              <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 10, padding: 20 }}>
+                <p style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Star size={16} color="#f59e0b" />
+                  Produtos Mais Vendidos
+                </p>
+                {topProdutos.length === 0 ? (
+                  <p style={{ color: '#666', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Sem dados de produtos</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {topProdutos.map((p, idx) => (
+                      <div key={p.nome} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: idx === 0 ? '#f59e0b' : '#555', width: 18, textAlign: 'center' }}>{idx + 1}</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                            <span style={{ fontSize: 12, color: '#ccc' }}>{p.nome}</span>
+                            <span style={{ fontSize: 12, color: '#888' }}>{p.qtd}x</span>
+                          </div>
+                          <div style={{ height: 4, backgroundColor: '#292929', borderRadius: 2, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', backgroundColor: idx === 0 ? '#f59e0b' : '#ef423955', borderRadius: 2, width: `${(p.qtd / topProdutos[0].qtd) * 100}%` }} />
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 11, color: '#666', width: 60, textAlign: 'right' }}>{fmt(p.receita)}</span>
                       </div>
-                      <div style={{ height: '8px', background: '#111', borderRadius: '4px', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: pct + '%', background: CORES_PGTO[i % CORES_PGTO.length], borderRadius: '4px', transition: 'width 0.5s' }} />
-                      </div>
-                    </div>
-                  )
-                })}
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Produtos mais vendidos */}
-              <div style={{ gridColumn: '1/-1', background: '#1a1a1a', border: '1px solid #292929', borderRadius: '12px', padding: '20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                  <Star size={16} color="#f59e0b" />
-                  <span style={{ fontSize: '14px', fontWeight: 600, color: '#e6e6e6' }}>Produtos Mais Vendidos</span>
-                </div>
-                {produtosSorted.length === 0 ? (
-                  <p style={{ color: '#666', fontSize: '13px' }}>Nenhum item vendido no periodo.</p>
-                ) : produtosSorted.map((prod, i) => (
-                  <div key={prod.nome} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: i < produtosSorted.length - 1 ? '1px solid #1f1f1f' : 'none' }}>
-                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: i < 3 ? '#ef4239' : '#1f1f1f', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: i < 3 ? '#fff' : '#666', flexShrink: 0 }}>
-                      {i + 1}
-                    </div>
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#e6e6e6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prod.nome}</div>
-                      <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>{prod.qtd} vendas</div>
-                    </div>
-                    <div style={{ height: '6px', width: '120px', background: '#111', borderRadius: '3px', overflow: 'hidden', flexShrink: 0 }}>
-                      <div style={{ height: '100%', width: (prod.qtd / (produtosSorted[0]?.qtd || 1) * 100) + '%', background: '#ef4239', borderRadius: '3px' }} />
-                    </div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#22c55e', minWidth: '90px', textAlign: 'right' }}>
-                      R$ {prod.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </div>
+              {/* Formas de pagamento + Tipos */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 10, padding: 16 }}>
+                  <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <CreditCard size={15} color="#6366f1" />
+                    Formas de Pagamento
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {Object.entries(formasPgto).sort(([,a],[,b]) => b - a).map(([forma, qtd]) => (
+                      <div key={forma} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {formaIcon(forma)}
+                        <span style={{ fontSize: 12, color: '#ccc', flex: 1, textTransform: 'capitalize' }}>{forma.replace(/_/g, ' ')}</span>
+                        <span style={{ fontSize: 12, color: '#888' }}>{qtd} ({Math.round((qtd / totalPedidos) * 100)}%)</span>
+                        <div style={{ width: 60, height: 4, backgroundColor: '#292929', borderRadius: 2 }}>
+                          <div style={{ height: '100%', backgroundColor: '#6366f1', borderRadius: 2, width: `${(qtd / totalPedidos) * 100}%` }} />
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+                <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 10, padding: 16 }}>
+                  <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Bike size={15} color="#ef4239" />
+                    Tipo de Pedido
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {Object.entries(tiposPedido).sort(([,a],[,b]) => b - a).map(([tipo, qtd]) => (
+                      <div key={tipo} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {tipoIcon(tipo)}
+                        <span style={{ fontSize: 12, color: '#ccc', flex: 1, textTransform: 'capitalize' }}>{tipo}</span>
+                        <span style={{ fontSize: 12, color: '#888' }}>{qtd} ({Math.round((qtd / totalPedidos) * 100)}%)</span>
+                        <div style={{ width: 60, height: 4, backgroundColor: '#292929', borderRadius: 2 }}>
+                          <div style={{ height: '100%', backgroundColor: '#ef4239', borderRadius: 2, width: `${(qtd / totalPedidos) * 100}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           )}
         </>
       )}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }
 
 export default function DesempenhoPage() {
-  return (
-    <Suspense fallback={<div style={{ padding: 24, color: '#999', fontFamily: 'Mulish, sans-serif' }}>Carregando...</div>}>
-      <DesempenhoContent />
-    </Suspense>
-  )
+  return <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: '#111', color: '#888', fontFamily: 'Mulish, sans-serif' }}>Carregando...</div>}><DesempenhoContent /></Suspense>
 }
