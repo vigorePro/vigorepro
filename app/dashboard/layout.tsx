@@ -1,7 +1,8 @@
 'use client'
 
-import { Suspense } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 import {
   House, Wallet, Bike, UtensilsCrossed, ShoppingCart, ChefHat,
   BarChart3, Smartphone, CreditCard, MessageCircle, BarChart2,
@@ -26,6 +27,13 @@ function SidebarContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const slug = searchParams.get('slug') || 'default'
+  const [nomeEstab, setNomeEstab] = useState(slug || 'VigorePro')
+
+  useEffect(() => {
+    if (!slug || slug === 'default') return
+    supabase.from('estabelecimentos').select('nome').eq('slug', slug).single()
+      .then(({ data }) => { if (data?.nome) setNomeEstab(data.nome) })
+  }, [slug])
 
   const navGroups: NavGroup[] = [
     {
@@ -106,8 +114,8 @@ function SidebarContent() {
             fontSize: '14px', fontFamily: 'Mulish, sans-serif'
           }}>VP</div>
           <div>
-            <div style={{ fontSize: '14px', fontWeight: '700', color: '#fff', fontFamily: 'Mulish, sans-serif' }}>VigorePro</div>
-            <div style={{ fontSize: '11px', color: '#888', fontFamily: 'Mulish, sans-serif' }}>estabelecimento</div>
+            <div style={{ fontSize: '14px', fontWeight: '700', color: '#fff', fontFamily: 'Mulish, sans-serif' }}>{nomeEstab}</div>
+            <div style={{ fontSize: '11px', color: '#888', fontFamily: 'Mulish, sans-serif' }}>{slug}</div>
           </div>
         </div>
       </div>
