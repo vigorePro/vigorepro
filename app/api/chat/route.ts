@@ -178,7 +178,7 @@ PERGUNTAS FREQUENTES E RESPOSTAS:
 - "Qual o endereco?" -> Avenida Souza Naves, 675, Centro, Ivaipora-PR
 - "Aceita PIX?" -> Sim, aceita PIX (chave: panidolcepaulista@gmail.com), cartao e dinheiro
 - "Tem que pagar antes?" -> O pagamento e na retirada/entrega
-- "Quero ver o cardapio?" -> envie o link: https://dolcedolce.vigorepro.com.br/cardapio?slug=dolcedolce
+- "Quero ver o cardapio?" -> envie o link: https://dolcedolce.vigorepro.com.br/cardapio/dolcedolce
 
 SITUACOES PARA ESCALAR PARA HUMANO:
 A MEL deve avisar que vai chamar um atendente humano nas seguintes situacoes:
