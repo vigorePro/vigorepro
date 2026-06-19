@@ -70,7 +70,14 @@ function MarketingContent() {
   }, [estabelecimentoId])
 
   useEffect(() => { fetchEstabelecimento() }, [fetchEstabelecimento])
-  useEffect(() => { if (estabelecimentoId) fetchDados() }, [estabelecimentoId, fetchDados])
+  useEffect(() => {
+    if (!estabelecimentoId) return
+    fetchDados()
+    const ch = supabase.channel('mkt-' + estabelecimentoId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'campanhas', filter: 'estabelecimento_id=eq.' + estabelecimentoId }, () => { fetchDados() })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [estabelecimentoId, fetchDados])
 
   const criarCampanha = async (dados: Partial<Campanha>) => {
     if (!estabelecimentoId) return
