@@ -119,12 +119,12 @@ function CardapioContent() {
 
   return (
     <div style={{ backgroundColor: '#111111', minHeight: '100vh', color: '#ffffff', display: 'flex', flexDirection: 'column', fontFamily: 'Inter, sans-serif' }}>
-      {/* Header tabs + aÃ§Ãµes */}
+      {/* Header tabs + acoes */}
       <div style={{ backgroundColor: '#1a1a1a', borderBottom: '1px solid #2a2a2a', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', gap: '0' }}>
           {[
             { key: 'produtos', label: 'Produtos' },
-            { key: 'grupos', label: 'Grupo de OpÃ§Ãµes' },
+            { key: 'grupos', label: 'Grupo de Opcoes' },
             { key: 'complementos', label: 'Complementos' }
           ].map(tab => (
             <button
@@ -142,10 +142,10 @@ function CardapioContent() {
           ))}
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <button style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#9ca3af', cursor: 'pointer', fontSize: '14px' }}>ð</button>
-          <button style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#9ca3af', cursor: 'pointer', fontSize: '14px' }}>ð</button>
-          <button onClick={carregarDados} style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#9ca3af', cursor: 'pointer', fontSize: '14px' }}>â»</button>
-          <button style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#9ca3af', cursor: 'pointer', fontSize: '14px' }}>â®</button>
+          <button style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#9ca3af', cursor: 'pointer', fontSize: '14px' }}></button>
+          <button style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#9ca3af', cursor: 'pointer', fontSize: '14px' }}></button>
+          <button onClick={carregarDados} style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#9ca3af', cursor: 'pointer', fontSize: '14px' }}></button>
+          <button style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#9ca3af', cursor: 'pointer', fontSize: '14px' }}></button>
           <button
             onClick={() => { setProdutoEditando({ disponivel: true, destaque: false }); setModalAberto(true) }}
             style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: '#eb0029', color: '#fff', fontSize: '13px', fontWeight: '600' }}
@@ -198,7 +198,7 @@ function CardapioContent() {
           </div>
         </div>
 
-        {/* ConteÃºdo principal */}
+        {/* Conteudo principal */}
         <div style={{ flex: 1, overflow: 'auto' }}>
           {/* Barra filtros */}
           <div style={{ padding: '12px 20px', borderBottom: '1px solid #2a2a2a', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -221,10 +221,10 @@ function CardapioContent() {
                 </button>
               ))}
               <button style={{ padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: '1px solid #2a2a2a', backgroundColor: 'transparent', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                âï¸ Editar em Lote
+                 Editar em Lote
               </button>
               <button style={{ padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: '1px solid #2a2a2a', backgroundColor: 'transparent', color: '#9ca3af' }}>
-                ð¥ Importar
+                 Importar
               </button>
             </div>
           </div>
@@ -232,10 +232,10 @@ function CardapioContent() {
           {/* Grid produtos */}
           <div style={{ padding: '16px 20px' }}>
             {carregando ? (
-              <div style={{ textAlign: 'center', padding: '60px', color: '#6b7280' }}>Carregando cardÃ¡pio...</div>
+              <div style={{ textAlign: 'center', padding: '60px', color: '#6b7280' }}>Carregando cardapio...</div>
             ) : abaTipo !== 'produtos' ? (
               <div style={{ textAlign: 'center', padding: '60px', color: '#6b7280' }}>
-                {abaTipo === 'grupos' ? 'Grupos de OpÃ§Ãµes' : 'Complementos'} â em breve
+                {abaTipo === 'grupos' ? 'Grupos de Opcoes' : 'Complementos'}  em breve
               </div>
             ) : (
               <>
@@ -248,12 +248,12 @@ function CardapioContent() {
                       <div key={cat.id} style={{ marginBottom: '28px' }}>
                         {/* Header categoria */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px', padding: '10px 14px', backgroundColor: '#1a1a1a', borderRadius: '8px', border: '1px solid #2a2a2a' }}>
-                          <span style={{ fontSize: '18px' }}>ð</span>
+                          <span style={{ fontSize: '18px' }}></span>
                           <span style={{ fontWeight: '600', fontSize: '14px', color: '#fff' }}>{cat.nome}</span>
                           <span style={{ fontSize: '12px', color: '#6b7280', padding: '2px 8px', backgroundColor: '#2a2a2a', borderRadius: '10px' }}>{prods.length} produtos</span>
                           <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
-                            <button style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#9ca3af', cursor: 'pointer', fontSize: '13px' }}>â</button>
-                            <button style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#9ca3af', cursor: 'pointer', fontSize: '13px' }}>ð¼</button>
+                            <button style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#9ca3af', cursor: 'pointer', fontSize: '13px' }}></button>
+                            <button style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#9ca3af', cursor: 'pointer', fontSize: '13px' }}></button>
                           </div>
                         </div>
                         {/* Grid produtos */}
@@ -268,24 +268,24 @@ function CardapioContent() {
                                   {produto.imagem_url ? (
                                     <img src={produto.imagem_url} alt={produto.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                   ) : (
-                                    <span style={{ fontSize: '24px' }}>ð½ï¸</span>
+                                    <span style={{ fontSize: '24px' }}></span>
                                   )}
                                 </div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <span style={{ fontWeight: '600', fontSize: '13px', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>{produto.nome}</span>
-                                    <button style={{ backgroundColor: 'transparent', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '16px', padding: '0', flexShrink: 0 }}>â®</button>
+                                    <button style={{ backgroundColor: 'transparent', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '16px', padding: '0', flexShrink: 0 }}></button>
                                   </div>
                                   <div style={{ color: '#eb0029', fontWeight: '700', fontSize: '14px', marginTop: '4px' }}>{formatarPreco(produto.preco)}</div>
                                 </div>
                               </div>
                               <div style={{ padding: '8px 12px', borderTop: '1px solid #2a2a2a', display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                <span title={produto.disponivel ? 'Ativo' : 'Inativo'} style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: produto.disponivel ? '#10b981' : '#4b5563', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', cursor: 'pointer' }} onClick={() => toggleDisponivel(produto.id, produto.disponivel)}>â</span>
-                                <span title="Delivery" style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>ð²</span>
-                                <span title="Mesa" style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>ð½</span>
+                                <span title={produto.disponivel ? 'Ativo' : 'Inativo'} style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: produto.disponivel ? '#10b981' : '#4b5563', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', cursor: 'pointer' }} onClick={() => toggleDisponivel(produto.id, produto.disponivel)}></span>
+                                <span title="Delivery" style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}></span>
+                                <span title="Mesa" style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}></span>
                                 <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
-                                  <button onClick={() => { setProdutoEditando(produto); setModalAberto(true) }} style={{ width: '26px', height: '26px', borderRadius: '4px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#9ca3af', cursor: 'pointer', fontSize: '12px' }}>âï¸</button>
-                                  <button onClick={() => excluirProduto(produto.id)} style={{ width: '26px', height: '26px', borderRadius: '4px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#ef4444', cursor: 'pointer', fontSize: '12px' }}>ð</button>
+                                  <button onClick={() => { setProdutoEditando(produto); setModalAberto(true) }} style={{ width: '26px', height: '26px', borderRadius: '4px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#9ca3af', cursor: 'pointer', fontSize: '12px' }}></button>
+                                  <button onClick={() => excluirProduto(produto.id)} style={{ width: '26px', height: '26px', borderRadius: '4px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#ef4444', cursor: 'pointer', fontSize: '12px' }}></button>
                                 </div>
                               </div>
                             </div>
@@ -311,7 +311,7 @@ function CardapioContent() {
           <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '12px', padding: '24px', width: '420px', maxWidth: '95vw' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
               <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700' }}>{produtoEditando.id ? 'Editar Produto' : 'Novo Produto'}</h3>
-              <button onClick={() => setModalAberto(false)} style={{ backgroundColor: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '20px' }}>Ã</button>
+              <button onClick={() => setModalAberto(false)} style={{ backgroundColor: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '20px' }}></button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
@@ -328,19 +328,19 @@ function CardapioContent() {
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: '12px', color: '#9ca3af', display: 'block', marginBottom: '6px' }}>PreÃ§o (R$)</label>
+                <label style={{ fontSize: '12px', color: '#9ca3af', display: 'block', marginBottom: '6px' }}>Preo (R$)</label>
                 <input type="number" step="0.01" value={produtoEditando.preco || ''} onChange={e => setProdutoEditando(prev => ({ ...prev, preco: parseFloat(e.target.value) || 0 }))}
                   style={{ width: '100%', backgroundColor: '#111111', border: '1px solid #2a2a2a', borderRadius: '6px', padding: '8px 12px', color: '#fff', fontSize: '14px', outline: 'none', boxSizing: 'border-box' as any }} placeholder="0,00" />
               </div>
               <div>
-                <label style={{ fontSize: '12px', color: '#9ca3af', display: 'block', marginBottom: '6px' }}>DescriÃ§Ã£o</label>
+                <label style={{ fontSize: '12px', color: '#9ca3af', display: 'block', marginBottom: '6px' }}>Descrio</label>
                 <textarea value={produtoEditando.descricao || ''} onChange={e => setProdutoEditando(prev => ({ ...prev, descricao: e.target.value }))}
-                  style={{ width: '100%', backgroundColor: '#111111', border: '1px solid #2a2a2a', borderRadius: '6px', padding: '8px 12px', color: '#fff', fontSize: '14px', outline: 'none', resize: 'vertical', minHeight: '80px', boxSizing: 'border-box' as any }} placeholder="DescriÃ§Ã£o do produto" />
+                  style={{ width: '100%', backgroundColor: '#111111', border: '1px solid #2a2a2a', borderRadius: '6px', padding: '8px 12px', color: '#fff', fontSize: '14px', outline: 'none', resize: 'vertical', minHeight: '80px', boxSizing: 'border-box' as any }} placeholder="Descrio do produto" />
               </div>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#9ca3af' }}>
                   <input type="checkbox" checked={produtoEditando.disponivel !== false} onChange={e => setProdutoEditando(prev => ({ ...prev, disponivel: e.target.checked }))} />
-                  DisponÃ­vel
+                  Disponvel
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#9ca3af' }}>
                   <input type="checkbox" checked={!!produtoEditando.destaque} onChange={e => setProdutoEditando(prev => ({ ...prev, destaque: e.target.checked }))} />
