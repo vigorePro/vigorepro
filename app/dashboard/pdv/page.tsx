@@ -32,6 +32,7 @@ function PDVContent() {
   const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null)
   const [buscaCliente, setBuscaCliente] = useState('')
   const [formaPagamento, setFormaPagamento] = useState<'dinheiro' | 'cartao' | 'pix'>('dinheiro')
+  const [toast, setToast] = useState<{msg: string, show: boolean}>({msg: '', show: false})
   const [desconto, setDesconto] = useState(0)
   const [troco, setTroco] = useState('')
   const [mesa, setMesa] = useState('')
@@ -85,6 +86,8 @@ function PDVContent() {
       if (existe) return prev.map(i => i.produto.id === produto.id ? { ...i, quantidade: i.quantidade + 1 } : i)
       return [...prev, { produto, quantidade: 1 }]
     })
+    setToast({ msg: produto.nome + ' adicionado!', show: true })
+    setTimeout(() => setToast(t => ({ ...t, show: false })), 1500)
   }
 
   const removerItem = (id: string) => setCarrinho(prev => prev.filter(i => i.produto.id !== id))
@@ -400,6 +403,11 @@ function PDVContent() {
       )}
     </div>
   )
+{toast.show && (
+    <div style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)', backgroundColor: '#22c55e', color: '#fff', padding: '10px 20px', borderRadius: 8, fontSize: 14, fontWeight: 700, zIndex: 9999, boxShadow: '0 4px 12px rgba(0,0,0,0.3)', whiteSpace: 'nowrap' }}>
+      {toast.msg}
+    </div>
+  )}
 }
 
 export default function PDVPage() {
