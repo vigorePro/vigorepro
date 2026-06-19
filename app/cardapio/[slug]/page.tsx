@@ -54,6 +54,7 @@ function CardapioPublico({ params }: { params: { slug: string } }) {
   const [obsItem, setObsItem] = useState('')
   const [qtdItem, setQtdItem] = useState(1)
   const [carregando, setCarregando] = useState(true)
+  const [isLogado, setIsLogado] = useState(false)
   const [pedidoEnviado, setPedidoEnviado] = useState(false)
   // IA Chat state
   const [chatAberto, setChatAberto] = useState(false)
@@ -84,6 +85,12 @@ function CardapioPublico({ params }: { params: { slug: string } }) {
     if (catR.data) setCategorias(catR.data)
     setCarregando(false)
   }, [slug])
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsLogado(!!session)
+    })
+  }, [])
 
   useEffect(() => { fetchDados() }, [fetchDados])
 
@@ -142,7 +149,7 @@ function CardapioPublico({ params }: { params: { slug: string } }) {
   if (!estabelecimento) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f5', fontFamily: 'Mulish, sans-serif' }}>
       <div style={{ textAlign: 'center', color: '#888' }}>
-        <p style={{ fontSize: 48, margin: '0 0 16px' }}>🍽️</p>
+        <p style={{ fontSize: 48, margin: '0 0 16px' }}>ð½ï¸</p>
         <h2 style={{ margin: '0 0 8px' }}>Restaurante nao encontrado</h2>
         <p>O estabelecimento <strong>{slug}</strong> nao existe ou nao esta ativo.</p>
       </div>
@@ -180,6 +187,12 @@ function CardapioPublico({ params }: { params: { slug: string } }) {
       <div style={{ background: '#fff', borderBottom: '1px solid #eee', position: 'sticky', top: 0, zIndex: 100 }}>
         <div style={{ maxWidth: 800, margin: '0 auto', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {isLogado && (
+              <a href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#666', textDecoration: 'none', fontSize: 13, fontWeight: 600, padding: '4px 8px', borderRadius: 6, background: '#f3f4f6', border: '1px solid #e5e7eb' }}>
+                <ArrowLeft size={14} />
+                Dashboard
+              </a>
+            )}
             {estabelecimento.logo_url ? (
               <img src={estabelecimento.logo_url} alt="logo" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
             ) : (
@@ -235,7 +248,7 @@ function CardapioPublico({ params }: { params: { slug: string } }) {
         {/* LISTA DE PRODUTOS */}
         {produtosFiltrados.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 60, color: '#aaa' }}>
-            <p style={{ fontSize: 32, margin: '0 0 8px' }}>🔍</p>
+            <p style={{ fontSize: 32, margin: '0 0 8px' }}>ð</p>
             <p>Nenhum produto encontrado</p>
           </div>
         ) : (
@@ -293,7 +306,7 @@ function CardapioPublico({ params }: { params: { slug: string } }) {
               <button onClick={() => adicionarCarrinho(produtoDetalhe, qtdItem, obsItem)} style={{
                 padding: '12px 24px', background: corPrimaria, border: 'none', borderRadius: 10, color: '#fff',
                 fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'Mulish, sans-serif'
-              }}>Adicionar · R$ {((produtoDetalhe.preco_promocional || produtoDetalhe.preco) * qtdItem).toFixed(2).replace('.', ',')}</button>
+              }}>Adicionar Â· R$ {((produtoDetalhe.preco_promocional || produtoDetalhe.preco) * qtdItem).toFixed(2).replace('.', ',')}</button>
             </div>
           </div>
         </div>
@@ -421,7 +434,7 @@ function CardapioPublico({ params }: { params: { slug: string } }) {
               width: '100%', padding: '16px 0', background: formCliente.nome && formCliente.telefone ? corPrimaria : '#ccc',
               border: 'none', borderRadius: 12, color: '#fff', fontWeight: 800, fontSize: 17,
               cursor: formCliente.nome && formCliente.telefone ? 'pointer' : 'not-allowed', fontFamily: 'Mulish, sans-serif'
-            }}>Confirmar Pedido · R$ {totalCarrinho.toFixed(2).replace('.', ',')}</button>
+            }}>Confirmar Pedido Â· R$ {totalCarrinho.toFixed(2).replace('.', ',')}</button>
           </div>
         </div>
       )}
