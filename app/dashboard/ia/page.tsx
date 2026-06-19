@@ -27,7 +27,7 @@ function IAContent() {
   const [abaAtiva, setAbaAtiva] = useState<'painel'|'teste'>('painel')
 
   const [testeMensagens, setTesteMensagens] = useState<MensagemChat[]>([
-    { role: 'assistant', content: 'Ola! Sou a MEL. Este e o modo de teste — experimente conversar comigo como se fosse um cliente! :)' }
+    { role: 'assistant', content: 'Ola! Sou a MEL. Este e o modo de teste â experimente conversar comigo como se fosse um cliente! :)' }
   ])
   const [testeInput, setTesteInput] = useState('')
   const [testeCarregando, setTesteCarregando] = useState(false)
@@ -35,9 +35,21 @@ function IAContent() {
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!slug) return
-    supabase.from('estabelecimentos').select('id').eq('slug', slug).single()
-      .then(({ data }) => { if (data) setEstabelecimentoId(data.id) })
+    async function carregarEstab() {
+      if (slug && slug !== 'default') {
+        const { data } = await supabase.from('estabelecimentos').select('id').eq('slug', slug).single()
+        if (data) { setEstabelecimentoId(data.id); return }
+      }
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const { data: perfil } = await supabase
+        .from('estabelecimentos')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .single()
+      if (perfil) setEstabelecimentoId(perfil.id)
+    }
+    carregarEstab()
   }, [slug])
 
   const fetchDados = useCallback(async () => {
@@ -117,6 +129,13 @@ function IAContent() {
     return tel.length > 8 ? tel.substring(0, 6) + '****' + tel.slice(-2) : tel
   }
 
+  const getCanalTelefone = (tel: string): { label: string; cor: string } => {
+    if (tel.startsWith('web_') || tel.startsWith('chat_') || tel.startsWith('teste_')) {
+      return { label: 'Chat Web', cor: '#3b82f6' }
+    }
+    return { label: 'WhatsApp', cor: '#25d366' }
+  }
+
   const formatarTempo = (iso: string) => {
     const d = new Date(iso)
     const now = new Date()
@@ -136,7 +155,7 @@ function IAContent() {
           </div>
           <div>
             <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>Inteligencia Artificial</h1>
-            <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>MEL — Assistente virtual powered by Claude AI</p>
+            <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>MEL â Assistente virtual powered by Claude AI</p>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -208,8 +227,13 @@ function IAContent() {
                       {c.ultima_mensagem.substring(0, 80)}{c.ultima_mensagem.length > 80 ? '...' : ''}
                     </div>
                   </div>
-                  <div style={{ background: '#292929', borderRadius: 20, padding: '2px 10px', fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>
-                    {c.total_mensagens} msgs
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                    <div style={{ background: getCanalTelefone(c.telefone).cor + '22', borderRadius: 20, padding: '2px 10px', fontSize: 11, color: getCanalTelefone(c.telefone).cor, fontWeight: 600 }}>
+                      {getCanalTelefone(c.telefone).label}
+                    </div>
+                    <div style={{ background: '#292929', borderRadius: 20, padding: '2px 10px', fontSize: 11, color: '#9ca3af' }}>
+                      {c.total_mensagens} msgs
+                    </div>
                   </div>
                 </div>
               ))}
@@ -223,7 +247,7 @@ function IAContent() {
           <div style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 480 }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid #292929', display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981' }} />
-              <span style={{ fontWeight: 700, fontSize: 14 }}>Chat de Teste — MEL</span>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>Chat de Teste â MEL</span>
               <span style={{ fontSize: 12, color: '#6b7280', marginLeft: 4 }}>Simule a experiencia do cliente</span>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
