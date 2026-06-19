@@ -64,7 +64,14 @@ function PDVContent() {
   }, [estabelecimentoId])
 
   useEffect(() => { fetchEstabelecimento() }, [fetchEstabelecimento])
-  useEffect(() => { if (estabelecimentoId) fetchDados() }, [estabelecimentoId, fetchDados])
+  useEffect(() => {
+    if (!estabelecimentoId) return
+    fetchDados()
+    const ch = supabase.channel('pdv-' + estabelecimentoId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'produtos', filter: 'estabelecimento_id=eq.' + estabelecimentoId }, () => { fetchDados() })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [estabelecimentoId, fetchDados])
 
   const produtosFiltrados = produtos.filter(p => {
     const catOk = categoriaAtiva === 'todos' || p.categoria_id === categoriaAtiva
