@@ -77,6 +77,11 @@ function FinanceiroContent() {
       setLoading(false)
     }
     load()
+    const channel = supabase
+      .channel('fin-' + estabelecimentoId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lancamentos_financeiros', filter: 'estabelecimento_id=eq.' + estabelecimentoId }, () => { fetchLancamentos(estabelecimentoId) })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
   }, [estabelecimentoId, fetchLancamentos])
 
   const receitas = lancamentos.filter(l => l.tipo === 'receita')
