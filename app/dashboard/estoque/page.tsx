@@ -84,6 +84,12 @@ function EstoqueContent() {
       setLoading(false)
     }
     load()
+    // Supabase Realtime
+    const channel = supabase
+      .channel('estoque-' + estabelecimentoId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'estoque', filter: 'estabelecimento_id=eq.' + estabelecimentoId }, () => { fetchInsumos(estabelecimentoId) })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
   }, [estabelecimentoId, fetchInsumos, fetchMovimentacoes])
 
   const getStatus = (insumo: Insumo) => {
