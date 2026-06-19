@@ -1,434 +1,433 @@
 'use client'
+import { Suspense, useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { DollarSign, TrendingUp, TrendingDown, CreditCard, Plus, Search, Filter, RefreshCw, BarChart3, Calendar, ArrowUpCircle, ArrowDownCircle, Wallet } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 
-import { Suspense, useState } from 'react'
-import { 
-  DollarSign, TrendingUp, TrendingDown, AlertCircle, 
-  CheckCircle2, Clock, Plus, Filter, Calendar,
-  Building2, CreditCard, FileText, BarChart2,
-  ChevronDown, Search, Download, MoreHorizontal,
-  ArrowUpRight, ArrowDownRight, Wallet, Receipt
-} from 'lucide-react'
+type Lancamento = {
+  id: string
+  estabelecimento_id: string
+  tipo: 'receita' | 'despesa'
+  descricao: string
+  valor: number
+  categoria: string
+  data_vencimento: string
+  data_pagamento: string | null
+  status: 'pendente' | 'pago' | 'atrasado' | 'cancelado'
+  forma_pagamento: string
+  fornecedor_id: string | null
+  observacao: string | null
+  created_at: string
+}
+
+const CATEGORIAS_RECEITA = ['Vendas', 'Delivery', 'Mesa', 'PIX', 'Cartao', 'Outros']
+const CATEGORIAS_DESPESA = ['Insumos', 'Aluguel', 'Salarios', 'Energia', 'Marketing', 'Equipamentos', 'Manutencao', 'Outros']
+const FORMAS_PAGAMENTO = ['PIX', 'Cartao de Credito', 'Cartao de Debito', 'Dinheiro', 'Boleto', 'Transferencia']
 
 function FinanceiroContent() {
-  const [activeTab, setActiveTab] = useState('lancamentos')
-  const [lancamentoTab, setLancamentoTab] = useState('pagar')
+  const searchParams = useSearchParams()
+  const slug = searchParams.get('slug') || ''
 
-  const tabs = [
-    { id: 'lancamentos', label: 'Lancamentos', icon: Receipt },
-    { id: 'dre', label: 'DRE', icon: BarChart2 },
-    { id: 'recebimentos', label: 'Recebimentos', icon: ArrowUpRight },
-    { id: 'pagamentos', label: 'Pagamentos', icon: ArrowDownRight },
-    { id: 'fornecedores', label: 'Fornecedores', icon: Building2 },
-  ]
+  const [lancamentos, setLancamentos] = useState<Lancamento[]>([])
+  const [loading, setLoading] = useState(true)
+  const [estabelecimentoId, setEstabelecimentoId] = useState('')
+  const [activeTab, setActiveTab] = useState<'visao-geral' | 'receitas' | 'despesas' | 'lancamentos'>('visao-geral')
+  const [periodo, setPeriodo] = useState('mes')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFiltro, setStatusFiltro] = useState('todos')
+  const [showForm, setShowForm] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
+    tipo: 'despesa' as 'receita' | 'despesa',
+    descricao: '', valor: 0, categoria: 'Insumos',
+    data_vencimento: new Date().toISOString().split('T')[0],
+    forma_pagamento: 'PIX', status: 'pendente', observacao: ''
+  })
 
-  const summaryCards = [
-    { label: 'Vencidos', value: 'R$ 0,00', color: '#ef4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.2)' },
-    { label: 'Vencem hoje', value: 'R$ 0,00', color: '#f97316', bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.2)' },
-    { label: 'A vencer', value: 'R$ 0,00', color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.2)' },
-    { label: 'Pagos', value: 'R$ 0,00', color: '#22c55e', bg: 'rgba(34,197,94,0.08)', border: 'rgba(34,197,94,0.2)' },
-  ]
+  const fetchEstabelecimento = useCallback(async () => {
+    if (!slug) return
+    const { data } = await supabase.from('estabelecimentos').select('id').eq('slug', slug).single()
+    if (data) setEstabelecimentoId(data.id)
+  }, [slug])
 
-  const dreRows = [
-    { label: 'Receita Operacional Bruta', indent: 0, type: 'header', icon: '+', iconColor: '#22c55e' },
-    { label: 'Receita de Pedidos', indent: 1, type: 'sub' },
-    { label: 'Outras Receitas', indent: 1, type: 'sub' },
-    { label: 'Impostos e Devolucoes', indent: 0, type: 'minus', icon: '-', iconColor: '#ef4444' },
-    { label: 'Receita Operacional Liquida', indent: 0, type: 'result', icon: '=', iconColor: '#3b82f6' },
-    { label: 'Custos', indent: 0, type: 'minus', icon: '-', iconColor: '#ef4444' },
-    { label: 'Custo Vendas', indent: 1, type: 'sub' },
-    { label: 'Lucro Bruto', indent: 0, type: 'result', icon: '=', iconColor: '#3b82f6' },
-    { label: 'Margem Bruta (%)', indent: 0, type: 'pct' },
-    { label: 'Despesas Operacionais', indent: 0, type: 'minus', icon: '-', iconColor: '#ef4444' },
-    { label: 'Resultado Operacional (EBITDA)', indent: 0, type: 'result', icon: '=', iconColor: '#3b82f6' },
-    { label: 'Margem EBITDA (%)', indent: 0, type: 'pct' },
-    { label: 'Depreciacao e Amortizacao', indent: 1, type: 'sub' },
-    { label: 'EBIT', indent: 0, type: 'result', icon: '=', iconColor: '#3b82f6' },
-    { label: 'Resultado Financeiro', indent: 0, type: 'minus', icon: '-', iconColor: '#ef4444' },
-    { label: 'Lucro Liquido', indent: 0, type: 'result', icon: '=', iconColor: '#22c55e' },
-    { label: 'Margem Liquida (%)', indent: 0, type: 'pct' },
-  ]
+  const fetchLancamentos = useCallback(async (estId: string) => {
+    const now = new Date()
+    let dateFilter = new Date()
+    if (periodo === 'semana') dateFilter.setDate(now.getDate() - 7)
+    else if (periodo === 'mes') dateFilter.setMonth(now.getMonth() - 1)
+    else if (periodo === 'trimestre') dateFilter.setMonth(now.getMonth() - 3)
+    else if (periodo === 'ano') dateFilter.setFullYear(now.getFullYear() - 1)
 
-  const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+    const { data } = await supabase
+      .from('lancamentos_financeiros')
+      .select('*')
+      .eq('estabelecimento_id', estId)
+      .gte('created_at', dateFilter.toISOString())
+      .order('created_at', { ascending: false })
+    setLancamentos(data || [])
+  }, [periodo])
 
-  const fornecedores = [
-    { nome: 'Distribuidora ABC', categoria: 'Ingredientes', contato: '(11) 9999-9999', email: 'abc@dist.com', saldo: 'R$ 0,00' },
-    { nome: 'Embalagens XYZ', categoria: 'Embalagens', contato: '(11) 8888-8888', email: 'xyz@emb.com', saldo: 'R$ 0,00' },
-  ]
+  useEffect(() => { fetchEstabelecimento() }, [fetchEstabelecimento])
+
+  useEffect(() => {
+    if (!estabelecimentoId) return
+    const load = async () => {
+      setLoading(true)
+      await fetchLancamentos(estabelecimentoId)
+      setLoading(false)
+    }
+    load()
+  }, [estabelecimentoId, fetchLancamentos])
+
+  const receitas = lancamentos.filter(l => l.tipo === 'receita')
+  const despesas = lancamentos.filter(l => l.tipo === 'despesa')
+  const totalReceitas = receitas.reduce((acc, l) => acc + Number(l.valor), 0)
+  const totalDespesas = despesas.reduce((acc, l) => acc + Number(l.valor), 0)
+  const lucro = totalReceitas - totalDespesas
+  const pendentes = lancamentos.filter(l => l.status === 'pendente').reduce((acc, l) => acc + Number(l.valor), 0)
+
+  const lancamentosFiltrados = lancamentos.filter(l => {
+    const matchSearch = l.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      l.categoria.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchStatus = statusFiltro === 'todos' || l.status === statusFiltro
+    const matchTipo = activeTab === 'lancamentos' || activeTab === 'visao-geral' ||
+      (activeTab === 'receitas' && l.tipo === 'receita') ||
+      (activeTab === 'despesas' && l.tipo === 'despesa')
+    return matchSearch && matchStatus && matchTipo
+  })
+
+  const handleSave = async () => {
+    if (!form.descricao || !estabelecimentoId) return
+    setSaving(true)
+    await supabase.from('lancamentos_financeiros').insert({
+      estabelecimento_id: estabelecimentoId,
+      tipo: form.tipo, descricao: form.descricao, valor: form.valor,
+      categoria: form.categoria, data_vencimento: form.data_vencimento,
+      forma_pagamento: form.forma_pagamento, status: form.status,
+      observacao: form.observacao || null
+    })
+    await fetchLancamentos(estabelecimentoId)
+    setSaving(false)
+    setShowForm(false)
+    setForm({ tipo: 'despesa', descricao: '', valor: 0, categoria: 'Insumos', data_vencimento: new Date().toISOString().split('T')[0], forma_pagamento: 'PIX', status: 'pendente', observacao: '' })
+  }
+
+  const handlePagar = async (id: string) => {
+    await supabase.from('lancamentos_financeiros').update({ status: 'pago', data_pagamento: new Date().toISOString() }).eq('id', id)
+    await fetchLancamentos(estabelecimentoId)
+  }
+
+  const getStatusColor = (status: string) => {
+    if (status === 'pago') return '#22c55e'
+    if (status === 'atrasado') return '#ef4239'
+    if (status === 'cancelado') return '#666'
+    return '#f59e0b'
+  }
+
+  const catDespesasData = CATEGORIAS_DESPESA.map(cat => ({
+    cat,
+    total: despesas.filter(d => d.categoria === cat).reduce((acc, d) => acc + Number(d.valor), 0)
+  })).filter(d => d.total > 0).sort((a, b) => b.total - a.total)
 
   return (
-    <div style={{ padding: '24px', fontFamily: 'Mulish, sans-serif', color: '#e6e6e6' }}>
+    <div style={{ padding: '24px', fontFamily: 'Mulish, sans-serif', color: '#e6e6e6', minHeight: '100vh' }}>
+      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-        <div>
-          <h1 style={{ fontSize: '22px', fontWeight: '700', color: '#fff', margin: 0 }}>Financeiro</h1>
-          <p style={{ fontSize: '13px', color: '#888', margin: '4px 0 0' }}>Controle financeiro completo do seu negocio</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <DollarSign size={22} color="#ef4239" />
+          <span style={{ fontSize: '20px', fontWeight: 700, color: '#fff' }}>Financeiro</span>
         </div>
-        <button style={{
-          display: 'flex', alignItems: 'center', gap: '6px',
-          background: '#ef4239', color: '#fff', border: 'none',
-          borderRadius: '8px', padding: '8px 16px', fontSize: '13px',
-          fontWeight: '600', cursor: 'pointer', fontFamily: 'Mulish, sans-serif'
-        }}>
-          <Plus size={15} />
-          Novo Lancamento
-        </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <select value={periodo} onChange={e => setPeriodo(e.target.value)}
+            style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: '8px', padding: '7px 12px', color: '#e6e6e6', fontSize: '13px', fontFamily: 'Mulish, sans-serif' }}>
+            <option value="semana">Esta semana</option>
+            <option value="mes">Este mes</option>
+            <option value="trimestre">Trimestre</option>
+            <option value="ano">Este ano</option>
+          </select>
+          <button onClick={() => fetchLancamentos(estabelecimentoId)}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px', color: '#e6e6e6', cursor: 'pointer', fontSize: '13px' }}>
+            <RefreshCw size={14} /> Atualizar
+          </button>
+          <button onClick={() => setShowForm(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: '#ef4239', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+            <Plus size={14} /> Novo Lancamento
+          </button>
+        </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '4px', borderBottom: '1px solid #292929', marginBottom: '24px' }}>
-        {tabs.map(tab => {
-          const Icon = tab.icon
-          const active = activeTab === tab.id
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '6px',
-                padding: '10px 16px', fontSize: '13px', fontWeight: active ? '600' : '400',
-                color: active ? '#ef4239' : '#888',
-                background: 'none', border: 'none',
-                borderBottom: active ? '2px solid #ef4239' : '2px solid transparent',
-                marginBottom: '-1px', cursor: 'pointer', fontFamily: 'Mulish, sans-serif'
-              }}
-            >
-              <Icon size={14} />
-              {tab.label}
-            </button>
-          )
-        })}
+      {/* KPIs */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+        {[
+          { label: 'Total Receitas', value: totalReceitas, icon: <TrendingUp size={18} color="#22c55e" />, color: '#22c55e', prefix: 'R$ ' },
+          { label: 'Total Despesas', value: totalDespesas, icon: <TrendingDown size={18} color="#ef4239" />, color: '#ef4239', prefix: 'R$ ' },
+          { label: lucro >= 0 ? 'Lucro' : 'Prejuizo', value: Math.abs(lucro), icon: <Wallet size={18} color={lucro >= 0 ? '#22c55e' : '#ef4239'} />, color: lucro >= 0 ? '#22c55e' : '#ef4239', prefix: (lucro < 0 ? '-' : '') + 'R$ ' },
+          { label: 'A Pagar/Receber', value: pendentes, icon: <CreditCard size={18} color="#f59e0b" />, color: '#f59e0b', prefix: 'R$ ' },
+        ].map((card, i) => (
+          <div key={i} style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: '12px', padding: '18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              {card.icon}
+              <span style={{ fontSize: '13px', color: '#999' }}>{card.label}</span>
+            </div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: card.color }}>
+              {card.prefix}{card.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </div>
+          </div>
+        ))}
       </div>
 
-      {activeTab === 'lancamentos' && (
-        <div>
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-            {[
-              { id: 'pagar', label: 'Contas a pagar', color: '#ef4239' },
-              { id: 'receber', label: 'Contas a receber', color: '#22c55e' },
-              { id: 'todos', label: 'Todos lancamentos', color: '#888' },
-            ].map(st => (
-              <button
-                key={st.id}
-                onClick={() => setLancamentoTab(st.id)}
-                style={{
-                  padding: '6px 16px', borderRadius: '6px', fontSize: '13px',
-                  fontWeight: lancamentoTab === st.id ? '600' : '400',
-                  color: lancamentoTab === st.id ? '#fff' : '#888',
-                  background: lancamentoTab === st.id ? st.color : 'transparent',
-                  border: lancamentoTab === st.id ? 'none' : '1px solid #292929',
-                  cursor: 'pointer', fontFamily: 'Mulish, sans-serif'
-                }}
-              >
-                {st.label}
-              </button>
-            ))}
-          </div>
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: '20px', borderBottom: '1px solid #292929' }}>
+        {[
+          { id: 'visao-geral', label: 'Visao Geral' },
+          { id: 'receitas', label: 'Receitas (' + receitas.length + ')' },
+          { id: 'despesas', label: 'Despesas (' + despesas.length + ')' },
+          { id: 'lancamentos', label: 'Todos os Lancamentos' },
+        ].map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
+            style={{ padding: '10px 20px', background: 'none', border: 'none', borderBottom: activeTab === tab.id ? '2px solid #ef4239' : '2px solid transparent', color: activeTab === tab.id ? '#ef4239' : '#999', cursor: 'pointer', fontSize: '14px', fontWeight: activeTab === tab.id ? 600 : 400, fontFamily: 'Mulish, sans-serif' }}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              background: '#1a1a1a', border: '1px solid #292929',
-              borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#e6e6e6'
-            }}>
-              <Filter size={13} />
-              Todas as categorias
-              <ChevronDown size={13} />
+      {/* Modal Formulario */}
+      {showForm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: '16px', padding: '28px', width: '500px', maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <span style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>Novo Lancamento</span>
+              <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '20px' }}>x</button>
             </div>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              background: '#1a1a1a', border: '1px solid #292929',
-              borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#e6e6e6'
-            }}>
-              <Calendar size={13} />
-              Este mes
+            {/* Tipo toggle */}
+            <div style={{ display: 'flex', gap: 0, marginBottom: '16px', background: '#111', borderRadius: '8px', padding: '4px' }}>
+              {(['receita', 'despesa'] as const).map(tipo => (
+                <button key={tipo} onClick={() => setForm(p => ({ ...p, tipo, categoria: tipo === 'receita' ? 'Vendas' : 'Insumos' }))}
+                  style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, fontFamily: 'Mulish, sans-serif',
+                    background: form.tipo === tipo ? (tipo === 'receita' ? '#22c55e' : '#ef4239') : 'transparent',
+                    color: form.tipo === tipo ? '#fff' : '#666' }}>
+                  {tipo === 'receita' ? 'Receita' : 'Despesa'}
+                </button>
+              ))}
             </div>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              background: '#1a1a1a', border: '1px solid #292929',
-              borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#888', flex: 1, maxWidth: '240px'
-            }}>
-              <Search size={13} />
-              Pesquisar...
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
-            {summaryCards.map(card => (
-              <div key={card.label} style={{
-                display: 'flex', alignItems: 'center', gap: '8px',
-                background: card.bg, border: '1px solid ' + card.border,
-                borderRadius: '8px', padding: '8px 14px', fontSize: '13px'
-              }}>
-                <span style={{ color: '#888' }}>{card.label}</span>
-                <span style={{ color: card.color, fontWeight: '700' }}>{card.value}</span>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <div style={{ gridColumn: '1/-1' }}>
+                <label style={{ fontSize: '12px', color: '#999', display: 'block', marginBottom: '4px' }}>Descricao</label>
+                <input value={form.descricao} onChange={e => setForm(p => ({ ...p, descricao: e.target.value }))} placeholder="Ex: Compra de insumos"
+                  style={{ width: '100%', background: '#111', border: '1px solid #333', borderRadius: '8px', padding: '8px 12px', color: '#e6e6e6', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'Mulish, sans-serif' }} />
               </div>
-            ))}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
-              background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)',
-              borderRadius: '8px', padding: '8px 14px', fontSize: '13px'
-            }}>
-              <span style={{ color: '#888' }}>Total do periodo</span>
-              <span style={{ color: '#a78bfa', fontWeight: '700' }}>R$ 0,00</span>
+              <div>
+                <label style={{ fontSize: '12px', color: '#999', display: 'block', marginBottom: '4px' }}>Valor (R$)</label>
+                <input type="number" step="0.01" value={form.valor} onChange={e => setForm(p => ({ ...p, valor: Number(e.target.value) }))}
+                  style={{ width: '100%', background: '#111', border: '1px solid #333', borderRadius: '8px', padding: '8px 12px', color: '#e6e6e6', fontSize: '14px', fontFamily: 'Mulish, sans-serif' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', color: '#999', display: 'block', marginBottom: '4px' }}>Categoria</label>
+                <select value={form.categoria} onChange={e => setForm(p => ({ ...p, categoria: e.target.value }))}
+                  style={{ width: '100%', background: '#111', border: '1px solid #333', borderRadius: '8px', padding: '8px 12px', color: '#e6e6e6', fontSize: '14px', fontFamily: 'Mulish, sans-serif' }}>
+                  {(form.tipo === 'receita' ? CATEGORIAS_RECEITA : CATEGORIAS_DESPESA).map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', color: '#999', display: 'block', marginBottom: '4px' }}>Vencimento</label>
+                <input type="date" value={form.data_vencimento} onChange={e => setForm(p => ({ ...p, data_vencimento: e.target.value }))}
+                  style={{ width: '100%', background: '#111', border: '1px solid #333', borderRadius: '8px', padding: '8px 12px', color: '#e6e6e6', fontSize: '14px', fontFamily: 'Mulish, sans-serif' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', color: '#999', display: 'block', marginBottom: '4px' }}>Forma de Pagamento</label>
+                <select value={form.forma_pagamento} onChange={e => setForm(p => ({ ...p, forma_pagamento: e.target.value }))}
+                  style={{ width: '100%', background: '#111', border: '1px solid #333', borderRadius: '8px', padding: '8px 12px', color: '#e6e6e6', fontSize: '14px', fontFamily: 'Mulish, sans-serif' }}>
+                  {FORMAS_PAGAMENTO.map(f => <option key={f}>{f}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', color: '#999', display: 'block', marginBottom: '4px' }}>Status</label>
+                <select value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value as any }))}
+                  style={{ width: '100%', background: '#111', border: '1px solid #333', borderRadius: '8px', padding: '8px 12px', color: '#e6e6e6', fontSize: '14px', fontFamily: 'Mulish, sans-serif' }}>
+                  <option value="pendente">Pendente</option>
+                  <option value="pago">Pago</option>
+                  <option value="cancelado">Cancelado</option>
+                </select>
+              </div>
+              <div style={{ gridColumn: '1/-1' }}>
+                <label style={{ fontSize: '12px', color: '#999', display: 'block', marginBottom: '4px' }}>Observacao</label>
+                <textarea value={form.observacao} onChange={e => setForm(p => ({ ...p, observacao: e.target.value }))} rows={2} placeholder="Observacoes opcionais..."
+                  style={{ width: '100%', background: '#111', border: '1px solid #333', borderRadius: '8px', padding: '8px 12px', color: '#e6e6e6', fontSize: '14px', resize: 'none', boxSizing: 'border-box', fontFamily: 'Mulish, sans-serif' }} />
+              </div>
             </div>
-          </div>
-
-          <div style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: '10px', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid #292929' }}>
-                  <th style={{ padding: '12px 14px', textAlign: 'left', color: '#888', fontWeight: '500', width: '32px' }}>
-                    <input type="checkbox" style={{ accentColor: '#ef4239' }} />
-                  </th>
-                  {['Data', 'Status', 'Descricao', 'Forma Pgto', 'Categoria', 'Conta', 'Valor', 'Acoes'].map(col => (
-                    <th key={col} style={{ padding: '12px 14px', textAlign: 'left', color: '#888', fontWeight: '500' }}>{col}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td colSpan={9} style={{ padding: '60px 14px', textAlign: 'center', color: '#555' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                      <Receipt size={32} style={{ color: '#333' }} />
-                      <span>Nenhum lancamento encontrado</span>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div style={{ fontSize: '12px', color: '#555', marginTop: '10px', padding: '0 4px' }}>
-            por pagina: 25 — Mostrando 1-0 de 0
+            <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowForm(false)}
+                style={{ padding: '8px 18px', background: '#111', border: '1px solid #333', borderRadius: '8px', color: '#e6e6e6', cursor: 'pointer', fontSize: '14px' }}>Cancelar</button>
+              <button onClick={handleSave} disabled={saving}
+                style={{ padding: '8px 18px', background: '#ef4239', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: 600, opacity: saving ? 0.7 : 1 }}>
+                {saving ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {activeTab === 'dre' && (
-        <div>
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', alignItems: 'center' }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
-              background: '#1a1a1a', border: '1px solid #292929',
-              borderRadius: '8px', padding: '8px 14px', fontSize: '13px', color: '#e6e6e6'
-            }}>
-              Ano: <strong>2026</strong> <ChevronDown size={13} />
+      {/* Visao Geral */}
+      {activeTab === 'visao-geral' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: '12px', padding: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+              <ArrowUpCircle size={16} color="#22c55e" />
+              <span style={{ fontSize: '14px', fontWeight: 600, color: '#e6e6e6' }}>Receitas por Categoria</span>
             </div>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
-              background: '#1a1a1a', border: '1px solid #292929',
-              borderRadius: '8px', padding: '8px 14px', fontSize: '13px', color: '#e6e6e6'
-            }}>
-              Cardapio: <strong>Todos os cardapios</strong> <ChevronDown size={13} />
-            </div>
-            <div style={{ marginLeft: 'auto' }}>
-              <button style={{
-                display: 'flex', alignItems: 'center', gap: '6px',
-                background: '#1a1a1a', border: '1px solid #292929',
-                borderRadius: '8px', padding: '8px 14px', fontSize: '13px',
-                color: '#e6e6e6', cursor: 'pointer', fontFamily: 'Mulish, sans-serif'
-              }}>
-                <Download size={13} />
-                Excel
-              </button>
-            </div>
+            {receitas.length === 0 ? (
+              <p style={{ color: '#666', fontSize: '13px' }}>Nenhuma receita no periodo.</p>
+            ) : CATEGORIAS_RECEITA.map(cat => {
+              const total = receitas.filter(r => r.categoria === cat).reduce((acc, r) => acc + Number(r.valor), 0)
+              if (total === 0) return null
+              const pct = totalReceitas > 0 ? (total / totalReceitas) * 100 : 0
+              return (
+                <div key={cat} style={{ marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '13px', color: '#999' }}>{cat}</span>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#22c55e' }}>R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div style={{ height: '6px', background: '#111', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: pct + '%', background: '#22c55e', borderRadius: '3px' }} />
+                  </div>
+                </div>
+              )
+            })}
           </div>
-
-          <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid #292929', marginBottom: '0' }}>
-            <button style={{
-              padding: '10px 18px', fontSize: '13px', fontWeight: '600',
-              color: '#ef4239', background: 'none', border: 'none',
-              borderBottom: '2px solid #ef4239', marginBottom: '-1px', cursor: 'pointer',
-              fontFamily: 'Mulish, sans-serif'
-            }}>
-              DRE - Demonstracao do resultado do exercicio
-            </button>
-            <button style={{
-              padding: '10px 18px', fontSize: '13px', fontWeight: '400',
-              color: '#888', background: 'none', border: 'none',
-              borderBottom: '2px solid transparent', marginBottom: '-1px', cursor: 'pointer',
-              fontFamily: 'Mulish, sans-serif'
-            }}>
-              Dados utilizados para gerar o relatorio
-            </button>
+          <div style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: '12px', padding: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+              <ArrowDownCircle size={16} color="#ef4239" />
+              <span style={{ fontSize: '14px', fontWeight: 600, color: '#e6e6e6' }}>Despesas por Categoria</span>
+            </div>
+            {despesas.length === 0 ? (
+              <p style={{ color: '#666', fontSize: '13px' }}>Nenhuma despesa no periodo.</p>
+            ) : catDespesasData.map(({ cat, total }) => {
+              const pct = totalDespesas > 0 ? (total / totalDespesas) * 100 : 0
+              return (
+                <div key={cat} style={{ marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '13px', color: '#999' }}>{cat}</span>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#ef4239' }}>R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div style={{ height: '6px', background: '#111', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: pct + '%', background: '#ef4239', borderRadius: '3px' }} />
+                  </div>
+                </div>
+              )
+            })}
           </div>
-
-          <div style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: '10px', overflowX: 'auto', marginTop: '0', borderTopLeftRadius: 0 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '900px' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid #292929' }}>
-                  <th style={{ padding: '12px 14px', textAlign: 'left', color: '#888', fontWeight: '500', width: '280px' }}>DRE</th>
-                  {months.map(m => (
-                    <th key={m} style={{ padding: '12px 10px', textAlign: 'right', color: '#888', fontWeight: '500', width: '80px' }}>{m}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {dreRows.map((row, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid #1e1e1e' }}>
-                    <td style={{
-                      padding: '10px 14px',
-                      paddingLeft: row.indent === 1 ? '32px' : '14px',
-                      color: row.type === 'pct' ? '#555' : row.type === 'result' ? '#fff' : row.type === 'header' ? '#fff' : '#aaa',
-                      fontWeight: (row.type === 'result' || row.type === 'header') ? '600' : '400',
-                      fontStyle: row.type === 'pct' ? 'italic' : 'normal',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {row.icon && (
-                          <span style={{
-                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            width: '16px', height: '16px', borderRadius: '3px',
-                            background: row.iconColor + '22', color: row.iconColor,
-                            fontSize: '12px', fontWeight: '700', flexShrink: 0
-                          }}>
-                            {row.icon}
-                          </span>
-                        )}
-                        {!row.icon && <span style={{ width: '16px', flexShrink: 0 }} />}
-                        {row.label}
-                      </div>
-                    </td>
-                    {months.map(m => (
-                      <td key={m} style={{
-                        padding: '10px 10px', textAlign: 'right',
-                        color: row.type === 'pct' ? '#555' : row.type === 'result' ? '#e6e6e6' : '#666',
-                        fontStyle: row.type === 'pct' ? 'italic' : 'normal',
-                        fontWeight: row.type === 'result' ? '600' : '400'
-                      }}>
-                        {row.type === 'pct' ? '0,00%' : '0,00'}
-                      </td>
+          {/* Pendentes */}
+          <div style={{ gridColumn: '1/-1', background: '#1a1a1a', border: '1px solid #292929', borderRadius: '12px', padding: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+              <Calendar size={16} color="#f59e0b" />
+              <span style={{ fontSize: '14px', fontWeight: 600, color: '#e6e6e6' }}>Lancamentos Pendentes</span>
+            </div>
+            {lancamentos.filter(l => l.status === 'pendente').length === 0 ? (
+              <p style={{ color: '#666', fontSize: '13px' }}>Nenhum lancamento pendente.</p>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    {['Descricao', 'Tipo', 'Vencimento', 'Valor', 'Acao'].map(h => (
+                      <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: '12px', color: '#666', fontWeight: 600 }}>{h}</th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p style={{ fontSize: '12px', color: '#555', marginTop: '12px' }}>
-            Em caso de duvidas clique sobre o botao de informacao ao lado de cada item
-          </p>
-        </div>
-      )}
-
-      {activeTab === 'recebimentos' && (
-        <div>
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-            {[
-              { label: 'Total recebido', value: 'R$ 0,00', icon: CheckCircle2, color: '#22c55e' },
-              { label: 'Pendente', value: 'R$ 0,00', icon: Clock, color: '#f97316' },
-              { label: 'Em atraso', value: 'R$ 0,00', icon: AlertCircle, color: '#ef4444' },
-            ].map(kpi => {
-              const Icon = kpi.icon
-              return (
-                <div key={kpi.label} style={{
-                  flex: 1, background: '#1a1a1a', border: '1px solid #292929',
-                  borderRadius: '10px', padding: '16px 18px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                    <Icon size={15} style={{ color: kpi.color }} />
-                    <span style={{ fontSize: '12px', color: '#888' }}>{kpi.label}</span>
-                  </div>
-                  <div style={{ fontSize: '22px', fontWeight: '700', color: '#fff' }}>{kpi.value}</div>
-                </div>
-              )
-            })}
-          </div>
-          <div style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: '10px', padding: '60px', textAlign: 'center', color: '#555' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-              <TrendingUp size={32} style={{ color: '#333' }} />
-              <span>Nenhum recebimento registrado</span>
-            </div>
+                </thead>
+                <tbody>
+                  {lancamentos.filter(l => l.status === 'pendente').slice(0, 5).map(l => (
+                    <tr key={l.id} style={{ borderBottom: '1px solid #1f1f1f' }}>
+                      <td style={{ padding: '10px 12px', fontSize: '13px', color: '#e6e6e6' }}>{l.descricao}</td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <span style={{ background: l.tipo === 'receita' ? 'rgba(34,197,94,0.15)' : 'rgba(239,66,57,0.15)', color: l.tipo === 'receita' ? '#22c55e' : '#ef4239', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>
+                          {l.tipo === 'receita' ? 'Receita' : 'Despesa'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 12px', fontSize: '13px', color: '#999' }}>{l.data_vencimento ? new Date(l.data_vencimento + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}</td>
+                      <td style={{ padding: '10px 12px', fontSize: '13px', fontWeight: 600, color: l.tipo === 'receita' ? '#22c55e' : '#ef4239' }}>R$ {Number(l.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <button onClick={() => handlePagar(l.id)}
+                          style={{ background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '6px', color: '#22c55e', cursor: 'pointer', padding: '4px 10px', fontSize: '12px', fontWeight: 600 }}>
+                          Marcar Pago
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       )}
 
-      {activeTab === 'pagamentos' && (
-        <div>
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-            {[
-              { label: 'Total pago', value: 'R$ 0,00', icon: CheckCircle2, color: '#22c55e' },
-              { label: 'Pendente', value: 'R$ 0,00', icon: Clock, color: '#f97316' },
-              { label: 'Em atraso', value: 'R$ 0,00', icon: AlertCircle, color: '#ef4444' },
-            ].map(kpi => {
-              const Icon = kpi.icon
-              return (
-                <div key={kpi.label} style={{
-                  flex: 1, background: '#1a1a1a', border: '1px solid #292929',
-                  borderRadius: '10px', padding: '16px 18px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                    <Icon size={15} style={{ color: kpi.color }} />
-                    <span style={{ fontSize: '12px', color: '#888' }}>{kpi.label}</span>
-                  </div>
-                  <div style={{ fontSize: '22px', fontWeight: '700', color: '#fff' }}>{kpi.value}</div>
-                </div>
-              )
-            })}
-          </div>
-          <div style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: '10px', padding: '60px', textAlign: 'center', color: '#555' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-              <TrendingDown size={32} style={{ color: '#333' }} />
-              <span>Nenhum pagamento registrado</span>
+      {/* Tabela de lancamentos (receitas, despesas ou todos) */}
+      {(activeTab === 'receitas' || activeTab === 'despesas' || activeTab === 'lancamentos') && (
+        <>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
+            <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
+              <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#666' }} />
+              <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Buscar lancamento..."
+                style={{ width: '100%', background: '#1a1a1a', border: '1px solid #292929', borderRadius: '8px', padding: '8px 12px 8px 32px', color: '#e6e6e6', fontSize: '13px', boxSizing: 'border-box', fontFamily: 'Mulish, sans-serif' }} />
             </div>
+            <select value={statusFiltro} onChange={e => setStatusFiltro(e.target.value)}
+              style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: '8px', padding: '8px 12px', color: '#e6e6e6', fontSize: '13px', fontFamily: 'Mulish, sans-serif' }}>
+              <option value="todos">Todos os status</option>
+              <option value="pendente">Pendente</option>
+              <option value="pago">Pago</option>
+              <option value="atrasado">Atrasado</option>
+              <option value="cancelado">Cancelado</option>
+            </select>
           </div>
-        </div>
-      )}
-
-      {activeTab === 'fornecedores' && (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              background: '#1a1a1a', border: '1px solid #292929',
-              borderRadius: '8px', padding: '8px 14px', fontSize: '13px', color: '#888'
-            }}>
-              <Search size={13} />
-              Pesquisar fornecedor...
-            </div>
-            <button style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              background: '#ef4239', color: '#fff', border: 'none',
-              borderRadius: '8px', padding: '8px 14px', fontSize: '13px',
-              fontWeight: '600', cursor: 'pointer', fontFamily: 'Mulish, sans-serif'
-            }}>
-              <Plus size={14} />
-              Novo Fornecedor
-            </button>
-          </div>
-          <div style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: '10px', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+          <div style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: '12px', overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #292929' }}>
-                  {['Nome', 'Categoria', 'Contato', 'E-mail', 'Saldo devedor', 'Acoes'].map(col => (
-                    <th key={col} style={{ padding: '12px 14px', textAlign: 'left', color: '#888', fontWeight: '500' }}>{col}</th>
+                  {['Data', 'Descricao', 'Categoria', 'Tipo', 'Forma Pgto', 'Valor', 'Status', 'Acao'].map(h => (
+                    <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', color: '#666', fontWeight: 600, fontFamily: 'Mulish, sans-serif' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {fornecedores.map((f, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid #1e1e1e' }}>
-                    <td style={{ padding: '12px 14px', color: '#e6e6e6', fontWeight: '500' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{
-                          width: '32px', height: '32px', borderRadius: '8px',
-                          background: '#292929', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}>
-                          <Building2 size={15} style={{ color: '#888' }} />
-                        </div>
-                        {f.nome}
-                      </div>
+                {loading ? (
+                  <tr><td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: '#666' }}>Carregando...</td></tr>
+                ) : lancamentosFiltrados.length === 0 ? (
+                  <tr><td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                    {lancamentos.length === 0 ? 'Nenhum lancamento ainda. Clique em "Novo Lancamento" para comecar.' : 'Nenhum resultado encontrado.'}
+                  </td></tr>
+                ) : lancamentosFiltrados.map(l => (
+                  <tr key={l.id} style={{ borderBottom: '1px solid #1f1f1f' }}>
+                    <td style={{ padding: '12px 16px', fontSize: '12px', color: '#666' }}>{new Date(l.created_at).toLocaleDateString('pt-BR')}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', color: '#e6e6e6', maxWidth: '180px' }}>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.descricao}</div>
                     </td>
-                    <td style={{ padding: '12px 14px', color: '#888' }}>{f.categoria}</td>
-                    <td style={{ padding: '12px 14px', color: '#888' }}>{f.contato}</td>
-                    <td style={{ padding: '12px 14px', color: '#888' }}>{f.email}</td>
-                    <td style={{ padding: '12px 14px', color: '#e6e6e6', fontWeight: '600' }}>{f.saldo}</td>
-                    <td style={{ padding: '12px 14px' }}>
-                      <button style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', padding: '4px' }}>
-                        <MoreHorizontal size={16} />
-                      </button>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', color: '#999' }}>{l.categoria}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span style={{ background: l.tipo === 'receita' ? 'rgba(34,197,94,0.15)' : 'rgba(239,66,57,0.15)', color: l.tipo === 'receita' ? '#22c55e' : '#ef4239', padding: '3px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>
+                        {l.tipo === 'receita' ? 'Receita' : 'Despesa'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 16px', fontSize: '12px', color: '#999' }}>{l.forma_pagamento}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: 600, color: l.tipo === 'receita' ? '#22c55e' : '#ef4239' }}>
+                      {l.tipo === 'receita' ? '+' : '-'}R$ {Number(l.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span style={{ background: l.status === 'pago' ? 'rgba(34,197,94,0.15)' : l.status === 'atrasado' ? 'rgba(239,66,57,0.15)' : l.status === 'cancelado' ? 'rgba(102,102,102,0.15)' : 'rgba(245,158,11,0.15)', color: getStatusColor(l.status), padding: '3px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>
+                        {l.status.charAt(0).toUpperCase() + l.status.slice(1)}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      {l.status === 'pendente' && (
+                        <button onClick={() => handlePagar(l.id)}
+                          style={{ background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '6px', color: '#22c55e', cursor: 'pointer', padding: '4px 10px', fontSize: '12px', fontWeight: 600 }}>
+                          Pagar
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        </>
       )}
     </div>
   )
@@ -436,7 +435,7 @@ function FinanceiroContent() {
 
 export default function FinanceiroPage() {
   return (
-    <Suspense fallback={<div style={{ padding: '24px', color: '#888', fontFamily: 'Mulish, sans-serif' }}>Carregando...</div>}>
+    <Suspense fallback={<div style={{ padding: 24, color: '#999', fontFamily: 'Mulish, sans-serif' }}>Carregando...</div>}>
       <FinanceiroContent />
     </Suspense>
   )
