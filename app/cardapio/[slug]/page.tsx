@@ -150,7 +150,7 @@ const frete = totalCarrinho < 50 ? 10 : totalCarrinho < 100 ? 5 : 0
 const total = (totalCarrinho + frete).toFixed(2).replace('.', ',')
 const freteTexto = frete === 0 ? 'Grátis 🎉' : `R$ ${frete.toFixed(2).replace('.', ',')}`
 const msg = `Olá! Vim pelo cardápio online e quero finalizar meu pedido 😊%0A%0A*Itens:*%0A${itensTexto}%0A%0ASubtotal: R$ ${totalCarrinho.toFixed(2).replace('.', ',')}%0AEntrega: ${freteTexto}%0A*Total: R$ ${total}*`
-window.open(`https://wa.me/554396841082?text=${msg}`, '_blank')
+window.open(`https://wa.me/5543936181082?text=${msg}`, '_blank')
 }
 
 if (carregando) return (
