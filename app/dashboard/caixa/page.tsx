@@ -68,7 +68,17 @@ function CaixaContent() {
   }, [estabelecimentoId])
 
   useEffect(() => { fetchEstabelecimento() }, [fetchEstabelecimento])
-  useEffect(() => { if (estabelecimentoId) fetchDados() }, [estabelecimentoId, fetchDados])
+  useEffect(() => {
+    if (!estabelecimentoId) return
+    fetchDados()
+    // Supabase Realtime
+    const channel = supabase
+      .channel('caixa-' + estabelecimentoId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos', filter: 'estabelecimento_id=eq.' + estabelecimentoId }, () => { fetchDados() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'caixas', filter: 'estabelecimento_id=eq.' + estabelecimentoId }, () => { fetchDados() })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [estabelecimentoId, fetchDados])
 
   const abrirCaixa = async () => {
     if (!estabelecimentoId || !saldoInicial) return
