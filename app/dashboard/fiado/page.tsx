@@ -62,6 +62,11 @@ function FiadoContent() {
       setLoading(false)
     }
     load()
+      const ch = supabase
+      .channel('fiado-' + estabelecimentoId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fiado_lancamentos', filter: 'estabelecimento_id=eq.' + estabelecimentoId }, () => { fetchLancamentos(estabelecimentoId) })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
   }, [estabelecimentoId, fetchLancamentos])
 
   const abertos = lancamentos.filter(l => l.status === 'aberto' || l.status === 'parcial')
