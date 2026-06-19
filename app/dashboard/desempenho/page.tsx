@@ -70,7 +70,15 @@ function DesempenhoContent() {
     setLoading(false)
   }, [estabelecimentoId, periodo])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    if (!estabelecimentoId) return
+    fetchData()
+    const channel = supabase
+      .channel('desempenho-' + estabelecimentoId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos', filter: 'estabelecimento_id=eq.' + estabelecimentoId }, () => { fetchData() })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [estabelecimentoId, fetchData])
 
   // Calculos
   const totalReceita = pedidos.reduce((acc, p) => acc + Number(p.total), 0)
