@@ -58,7 +58,7 @@ function LinksContent() {
       <div style={{ background: '#0f2e1a', border: '2px solid #16a34a', borderRadius: 14, padding: 24, marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
           <div>
-            <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: '#22c55e', textTransform: 'uppercase', letterSpacing: 0.5 }}>🌐 Seu Cardápio Digital</p>
+            <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: '#22c55e', textTransform: 'uppercase', letterSpacing: 0.5 }}>Seu Cardapio Digital</p>
             <p style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700, color: '#fff' }}>{estabelecimento?.nome || 'Estabelecimento'}</p>
             <p style={{ margin: '0 0 16px', fontSize: 14, color: '#4ade80' }}>{cardapioUrl}</p>
             <div style={{ display: 'flex', gap: 10 }}>
@@ -124,7 +124,7 @@ function LinksContent() {
 
       {/* Link de rastreamento */}
       <div style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: 12, padding: 20 }}>
-        <h2 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: '#fff' }}>🔍 Link de Rastreamento</h2>
+        <h2 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: '#fff' }}>Link de Rastreamento</h2>
         <p style={{ margin: '0 0 12px', fontSize: 13, color: '#888' }}>Compartilhe com o cliente para ele acompanhar o pedido</p>
         <div style={{ background: '#111', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#555', fontFamily: 'monospace' }}>
           {rastreioUrl}<span style={{ color: '#ef4239' }}>[ID_DO_PEDIDO]</span>
