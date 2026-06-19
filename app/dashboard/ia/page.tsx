@@ -153,16 +153,20 @@ if (!atendenteInput.trim() || enviandoAtendente || !conversaAberta || !estabelec
 const texto = atendenteInput.trim()
 setAtendenteInput('')
 setEnviandoAtendente(true)
-try {
+// Adiciona msg optimisticamente na tela
 const novaMsg: MensagemHistorico = { role: 'atendente', content: texto, criado_em: new Date().toISOString() }
 setMensagensConversa(prev => [...prev, novaMsg])
 setTimeout(() => painelRef.current?.scrollTo({ top: 99999, behavior: 'smooth' }), 80)
-await supabase.from('conversas_ia').insert({
-estabelecimento_id: estabelecimentoId,
+try {
+// Chama a rota que salva no Supabase E envia pelo WhatsApp
+await fetch('/api/whatsapp/send', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
 telefone: conversaAberta.telefone,
-role: 'atendente',
-content: texto,
-criado_em: new Date().toISOString(),
+mensagem: texto,
+estabelecimento_id: estabelecimentoId,
+}),
 })
 } finally {
 setEnviandoAtendente(false)
