@@ -78,7 +78,14 @@ function HistoricoContent() {
   }, [estabelecimentoId, dataInicio, dataFim, filtroStatus, filtroTipo, busca, pagina])
 
   useEffect(() => { fetchEstabelecimento() }, [fetchEstabelecimento])
-  useEffect(() => { if (estabelecimentoId) fetchPedidos() }, [estabelecimentoId, fetchPedidos])
+  useEffect(() => {
+    if (!estabelecimentoId) return
+    fetchPedidos()
+    const ch = supabase.channel('hist-' + estabelecimentoId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos', filter: 'estabelecimento_id=eq.' + estabelecimentoId }, () => { fetchPedidos() })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [estabelecimentoId, fetchPedidos])
 
   const atualizarStatus = async (id: string, status: string) => {
     await supabase.from('pedidos').update({ status }).eq('id', id)
