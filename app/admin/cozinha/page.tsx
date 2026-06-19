@@ -95,7 +95,15 @@ function KDSContent() {
     if (!estabelecimentoId) return
     fetchPedidos()
     const interval = setInterval(fetchPedidos, 15000)
-    return () => clearInterval(interval)
+    // Supabase Realtime - atualiza pedidos em tempo real
+    const channel = supabase
+      .channel('kds-' + estabelecimentoId)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'pedidos',
+        filter: 'estabelecimento_id=eq.' + estabelecimentoId
+      }, () => { fetchPedidos() })
+      .subscribe()
+    return () => { clearInterval(interval); supabase.removeChannel(channel) }
   }, [estabelecimentoId, fetchPedidos])
 
   const atualizarStatus = async (id: string, novoStatus: string) => {
