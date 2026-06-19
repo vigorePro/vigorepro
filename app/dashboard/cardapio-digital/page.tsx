@@ -1,614 +1,424 @@
 'use client'
-import { useState } from 'react'
+
+import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Suspense } from 'react'
+import { supabase } from '@/lib/supabase'
 import {
   Globe, Settings, Clock, MapPin, CreditCard, Tag, QrCode,
-  Copy, ExternalLink, Check, ToggleLeft, ToggleRight,
-  ChevronRight, Bike, ShoppingBag, UtensilsCrossed, Plus, Trash2
+  Copy, Check, Bike, ShoppingBag, UtensilsCrossed, Plus,
+  Trash2, CheckCircle, RefreshCw, Save, ExternalLink, X
 } from 'lucide-react'
 
 const TABS = [
-  { id: 'configuracoes', label: 'Configurações', icon: Settings },
-  { id: 'horario', label: 'Horário', icon: Clock },
-  { id: 'entrega', label: 'Área de Entrega', icon: MapPin },
-  { id: 'pagamento', label: 'Formas de Pagamento', icon: CreditCard },
+  { id: 'configuracoes', label: 'Configuracoes', icon: Settings },
+  { id: 'horario', label: 'Horario', icon: Clock },
+  { id: 'entrega', label: 'Entrega', icon: MapPin },
+  { id: 'pagamento', label: 'Pagamentos', icon: CreditCard },
   { id: 'cupons', label: 'Cupons', icon: Tag },
 ]
 
-const DIAS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
+const DIAS = ['Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado', 'Domingo']
+const DIAS_KEYS = ['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo']
+
+const FORMAS_PADRAO = [
+  { id: 'dinheiro', label: 'Dinheiro', ativo: true },
+  { id: 'cartao_debito', label: 'Cartao de Debito', ativo: true },
+  { id: 'cartao_credito', label: 'Cartao de Credito', ativo: true },
+  { id: 'pix', label: 'Pix', ativo: true },
+  { id: 'vale_refeicao', label: 'Vale Refeicao', ativo: false },
+]
+
+type Cupom = {
+  id?: string
+  codigo: string
+  desconto_tipo: 'percentual' | 'fixo'
+  desconto_valor: number
+  usos_maximos: number | null
+  ativo: boolean
+}
 
 function CardapioDigitalContent() {
   const searchParams = useSearchParams()
   const slug = searchParams.get('slug') || ''
-
+  const [estabelecimentoId, setEstabelecimentoId] = useState('')
   const [activeTab, setActiveTab] = useState('configuracoes')
+  const [copied, setCopied] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [savedOk, setSavedOk] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  // Config states
   const [deliveryAtivo, setDeliveryAtivo] = useState(true)
   const [retiradaAtivo, setRetiradaAtivo] = useState(true)
   const [consumoLocalAtivo, setConsumoLocalAtivo] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [pedidoMinimo, setPedidoMinimo] = useState('0,00')
+  const [pedidoMinimo, setPedidoMinimo] = useState('0')
+  const [taxaEntrega, setTaxaEntrega] = useState('0')
   const [temaCor, setTemaCor] = useState('#ef4239')
+  const [nomeCardapio, setNomeCardapio] = useState('')
+  const [descricaoCardapio, setDescricaoCardapio] = useState('')
+  const [horarios, setHorarios] = useState(
+    DIAS_KEYS.map(() => ({ aberto: true, abre: '08:00', fecha: '23:00' }))
+  )
+  const [formasPag, setFormasPag] = useState(FORMAS_PADRAO)
+  const [cupons, setCupons] = useState<Cupom[]>([])
+  const [novoCupom, setNovoCupom] = useState({ codigo: '', desconto_tipo: 'percentual', desconto_valor: '10', usos_maximos: '' })
+  const [showNovoCupom, setShowNovoCupom] = useState(false)
 
-  const publicLink = `https://cardapio.vigorepro.com.br/${slug}`
+  const cardapioUrl = slug ? `https://cardapio.vigorepro.com.br/${slug}` : ''
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(publicLink)
+  useEffect(() => {
+    if (!slug) return
+    supabase.from('estabelecimentos').select('*').eq('slug', slug).single()
+      .then(({ data }) => {
+        if (data) {
+          setEstabelecimentoId(data.id)
+          setNomeCardapio(data.nome || '')
+          setDescricaoCardapio(data.descricao || '')
+          setTemaCor(data.cor_tema || '#ef4239')
+          setDeliveryAtivo(data.delivery_ativo !== false)
+          setRetiradaAtivo(data.retirada_ativo !== false)
+          setConsumoLocalAtivo(data.consumo_local_ativo === true)
+          setPedidoMinimo(data.pedido_minimo?.toString() || '0')
+          setTaxaEntrega(data.taxa_entrega?.toString() || '0')
+          if (data.horarios) setHorarios(data.horarios)
+          if (data.formas_pagamento) setFormasPag(data.formas_pagamento)
+          // Load cupons
+          supabase.from('cupons').select('*').eq('estabelecimento_id', data.id).then(({ data: c }) => {
+            if (c) setCupons(c.map(cp => ({ id: cp.id, codigo: cp.codigo, desconto_tipo: cp.desconto_tipo, desconto_valor: cp.desconto_valor, usos_maximos: cp.usos_maximos, ativo: cp.ativo })))
+          })
+        }
+        setLoading(false)
+      })
+  }, [slug])
+
+  const salvarConfig = async () => {
+    if (!estabelecimentoId) return
+    setSaving(true)
+    await supabase.from('estabelecimentos').update({
+      nome: nomeCardapio,
+      descricao: descricaoCardapio,
+      cor_tema: temaCor,
+      delivery_ativo: deliveryAtivo,
+      retirada_ativo: retiradaAtivo,
+      consumo_local_ativo: consumoLocalAtivo,
+      pedido_minimo: parseFloat(pedidoMinimo) || 0,
+      taxa_entrega: parseFloat(taxaEntrega) || 0,
+      horarios: horarios,
+      formas_pagamento: formasPag,
+    }).eq('id', estabelecimentoId)
+    setSaving(false)
+    setSavedOk(true)
+    setTimeout(() => setSavedOk(false), 2500)
+  }
+
+  const adicionarCupom = async () => {
+    if (!novoCupom.codigo || !estabelecimentoId) return
+    const newC = {
+      estabelecimento_id: estabelecimentoId,
+      codigo: novoCupom.codigo.toUpperCase(),
+      desconto_tipo: novoCupom.desconto_tipo,
+      desconto_valor: parseFloat(novoCupom.desconto_valor) || 0,
+      usos_maximos: novoCupom.usos_maximos ? parseInt(novoCupom.usos_maximos) : null,
+      ativo: true, usos_atuais: 0
+    }
+    const { data } = await supabase.from('cupons').insert(newC).select().single()
+    if (data) setCupons(prev => [...prev, { id: data.id, codigo: data.codigo, desconto_tipo: data.desconto_tipo, desconto_valor: data.desconto_valor, usos_maximos: data.usos_maximos, ativo: true }])
+    setNovoCupom({ codigo: '', desconto_tipo: 'percentual', desconto_valor: '10', usos_maximos: '' })
+    setShowNovoCupom(false)
+  }
+
+  const removerCupom = async (id?: string, codigo?: string) => {
+    if (id) {
+      await supabase.from('cupons').delete().eq('id', id)
+      setCupons(prev => prev.filter(c => c.id !== id))
+    } else {
+      setCupons(prev => prev.filter(c => c.codigo !== codigo))
+    }
+  }
+
+  const copiar = () => {
+    navigator.clipboard.writeText(cardapioUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const [horarios, setHorarios] = useState(
-    DIAS.map((dia, i) => ({
-      dia,
-      ativo: i < 5,
-      abertura: '08:00',
-      fechamento: '22:00'
-    }))
+  const s = (extra?: object) => ({ fontFamily: 'Mulish, sans-serif', ...extra })
+
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: '#111', color: '#888', ...s() }}>
+      Carregando...
+    </div>
   )
 
-  const [formasPag, setFormasPag] = useState([
-    { id: 1, nome: 'Dinheiro', ativo: true },
-    { id: 2, nome: 'Cartão de Crédito', ativo: true },
-    { id: 3, nome: 'Cartão de Débito', ativo: true },
-    { id: 4, nome: 'Pix', ativo: true },
-    { id: 5, nome: 'Vale Refeição', ativo: false },
-  ])
-
-  const [cupons, setCupons] = useState([
-    { id: 1, codigo: 'BEMVINDO10', desconto: 10, tipo: '%', usos: 0, limite: 100, ativo: true },
-    { id: 2, codigo: 'FRETE0', desconto: 0, tipo: 'frete', usos: 5, limite: 50, ativo: false },
-  ])
-
-  const [areas, setAreas] = useState([
-    { id: 1, bairro: 'Centro', taxa: 0, tempo: '30-45 min' },
-    { id: 2, bairro: 'Zona Norte', taxa: 5, tempo: '45-60 min' },
-  ])
-
-  const s = (obj: Record<string, string | number | boolean>) =>
-    Object.entries(obj).reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {}) as React.CSSProperties
-
-  const tabStyle = (active: boolean): React.CSSProperties => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '10px 16px',
-    borderBottom: active ? '2px solid #ef4239' : '2px solid transparent',
-    color: active ? '#ef4239' : '#888',
-    fontWeight: active ? 600 : 400,
-    fontSize: '13px',
-    cursor: 'pointer',
-    background: 'none',
-    border: 'none',
-    borderBottom: active ? '2px solid #ef4239' : '2px solid transparent',
-    whiteSpace: 'nowrap',
-    fontFamily: 'Mulish, sans-serif',
-  })
-
-  const cardStyle: React.CSSProperties = {
-    backgroundColor: '#1a1a1a',
-    border: '1px solid #292929',
-    borderRadius: '12px',
-    padding: '20px',
-    marginBottom: '16px',
-  }
-
-  const labelStyle: React.CSSProperties = {
-    color: '#888',
-    fontSize: '12px',
-    marginBottom: '6px',
-    display: 'block',
-  }
-
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '10px 12px',
-    backgroundColor: '#111',
-    border: '1px solid #292929',
-    borderRadius: '8px',
-    color: '#e6e6e6',
-    fontSize: '14px',
-    fontFamily: 'Mulish, sans-serif',
-    boxSizing: 'border-box',
-  }
-
-  const toggleStyle = (ativo: boolean): React.CSSProperties => ({
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '6px 12px',
-    borderRadius: '999px',
-    backgroundColor: ativo ? '#ef423920' : '#1a1a1a',
-    border: `1px solid ${ativo ? '#ef4239' : '#292929'}`,
-    color: ativo ? '#ef4239' : '#888',
-    fontSize: '13px',
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontFamily: 'Mulish, sans-serif',
-  })
-
   return (
-    <div style={{ backgroundColor: '#111', minHeight: '100vh', fontFamily: 'Mulish, sans-serif' }}>
+    <div style={{ backgroundColor: '#111', minHeight: '100vh', color: '#fff', ...s() }}>
+
       {/* Header */}
-      <div style={{
-        padding: '20px 24px 0',
-        borderBottom: '1px solid #292929',
-        backgroundColor: '#111',
-        position: 'sticky',
-        top: 0,
-        zIndex: 10,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-          <Globe size={22} color='#ef4239' />
+      <div style={{ padding: '20px 24px', borderBottom: '1px solid #292929', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: '#1a1a1a', border: '1px solid #292929', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Globe size={20} color="#ef4239" />
+          </div>
           <div>
-            <h1 style={{ color: '#fff', fontSize: '20px', fontWeight: 700, margin: 0 }}>Cardápio Digital</h1>
-            <p style={{ color: '#888', fontSize: '12px', margin: '2px 0 0' }}>Configure seu cardápio online</p>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Cardapio Digital</h1>
+            <p style={{ margin: 0, fontSize: 12, color: '#888' }}>Configure seu cardapio online</p>
           </div>
         </div>
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: '0', overflowX: 'auto' }}>
-          {TABS.map(tab => {
-            const Icon = tab.icon
-            return (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={tabStyle(activeTab === tab.id)}>
-                <Icon size={14} />
-                {tab.label}
-              </button>
-            )
-          })}
-        </div>
+        {/* Link publico */}
+        {slug && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 8, padding: '8px 12px' }}>
+            <Globe size={13} color="#888" />
+            <span style={{ fontSize: 12, color: '#888', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cardapioUrl}</span>
+            <button onClick={copiar} style={{ background: 'none', border: 'none', cursor: 'pointer', color: copied ? '#22c55e' : '#888', padding: 0, display: 'flex' }}>
+              {copied ? <Check size={13} /> : <Copy size={13} />}
+            </button>
+            <a href={cardapioUrl} target="_blank" rel="noreferrer" style={{ color: '#888', display: 'flex', textDecoration: 'none' }}>
+              <ExternalLink size={13} />
+            </a>
+          </div>
+        )}
       </div>
 
-      <div style={{ padding: '24px', maxWidth: '900px' }}>
+      {/* Tabs */}
+      <div style={{ display: 'flex', borderBottom: '1px solid #292929', paddingLeft: 16, overflowX: 'auto' }}>
+        {TABS.map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '12px 20px', background: 'none', border: 'none',
+            borderBottom: activeTab === tab.id ? '2px solid #ef4239' : '2px solid transparent',
+            color: activeTab === tab.id ? '#ef4239' : '#888', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+            fontFamily: 'Mulish, sans-serif', whiteSpace: 'nowrap', marginBottom: -1
+          }}>
+            <tab.icon size={14} /> {tab.label}
+          </button>
+        ))}
+      </div>
 
-        {/* ====== ABA CONFIGURACOES ====== */}
+      <div style={{ padding: 24, maxWidth: 800 }}>
+
+        {/* CONFIGURACOES */}
         {activeTab === 'configuracoes' && (
-          <>
-            {/* Preview + Link */}
-            <div style={cardStyle}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                <Globe size={18} color='#ef4239' />
-                <span style={{ color: '#fff', fontWeight: 700, fontSize: '15px' }}>Link do Cardápio Público</span>
-              </div>
-
-              {/* Preview card */}
-              <div style={{
-                background: 'linear-gradient(135deg, #1a1a1a 0%, #222 100%)',
-                border: '1px solid #292929',
-                borderRadius: '12px',
-                padding: '20px',
-                marginBottom: '16px',
-                borderTop: `4px solid ${temaCor}`,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                  <div style={{
-                    width: '48px', height: '48px', borderRadius: '12px',
-                    backgroundColor: temaCor, display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', flexShrink: 0
-                  }}>
-                    <span style={{ color: '#fff', fontWeight: 700, fontSize: '18px' }}>VP</span>
-                  </div>
-                  <div>
-                    <div style={{ color: '#fff', fontWeight: 700, fontSize: '16px' }}>Dolce & Dolce</div>
-                    <div style={{ color: '#22c55e', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#22c55e', display: 'inline-block' }} />
-                      Aberto agora
-                    </div>
-                  </div>
-                </div>
-                <div style={{ color: '#888', fontSize: '12px' }}>Cardápio digital com delivery e retirada</div>
-              </div>
-
-              {/* Link */}
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
-                <input
-                  readOnly
-                  value={publicLink}
-                  style={{ ...inputStyle, flex: 1, color: '#ef4239', cursor: 'text' }}
-                />
-                <button onClick={copyLink} style={{
-                  padding: '10px 14px', borderRadius: '8px', border: '1px solid #292929',
-                  backgroundColor: copied ? '#22c55e20' : '#1a1a1a',
-                  color: copied ? '#22c55e' : '#e6e6e6',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
-                  fontSize: '13px', fontFamily: 'Mulish, sans-serif', flexShrink: 0
-                }}>
-                  {copied ? <Check size={14} /> : <Copy size={14} />}
-                  {copied ? 'Copiado!' : 'Copiar'}
-                </button>
-                <a href={publicLink} target='_blank' rel='noopener noreferrer' style={{
-                  padding: '10px 14px', borderRadius: '8px', border: '1px solid #292929',
-                  backgroundColor: '#1a1a1a', color: '#e6e6e6', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px',
-                  textDecoration: 'none', flexShrink: 0
-                }}>
-                  <ExternalLink size={14} />
-                  Abrir
-                </a>
-              </div>
-            </div>
-
-            {/* Cor do tema */}
-            <div style={cardStyle}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                <span style={{ color: '#fff', fontWeight: 700, fontSize: '15px' }}>Aparência</span>
-              </div>
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>Cor Principal do Tema</label>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input
-                      type='color'
-                      value={temaCor}
-                      onChange={e => setTemaCor(e.target.value)}
-                      style={{ width: '48px', height: '40px', border: '1px solid #292929', borderRadius: '8px', cursor: 'pointer', backgroundColor: '#111', padding: '2px' }}
-                    />
-                    <input
-                      type='text'
-                      value={temaCor}
-                      onChange={e => setTemaCor(e.target.value)}
-                      style={{ ...inputStyle, width: '120px' }}
-                    />
-                  </div>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>Nome do Estabelecimento</label>
-                  <input type='text' defaultValue='Dolce & Dolce' style={inputStyle} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>Categoria</label>
-                  <select style={{ ...inputStyle, cursor: 'pointer' }}>
-                    <option>Restaurante</option>
-                    <option>Lanchonete</option>
-                    <option>Pizzaria</option>
-                    <option>Padaria</option>
-                    <option>Hamburgueria</option>
-                    <option>Cafeteria</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Tipos de pedido */}
-            <div style={cardStyle}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 10, padding: 20 }}>
+              <p style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 700, color: '#fff' }}>Informacoes do Cardapio</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div>
-                  <div style={{ color: '#fff', fontWeight: 700, fontSize: '15px' }}>Tipos de Pedido</div>
-                  <div style={{ color: '#888', fontSize: '12px' }}>Configure entrega, retirada e consumo no local</div>
+                  <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>Nome do Estabelecimento</label>
+                  <input value={nomeCardapio} onChange={e => setNomeCardapio(e.target.value)} style={{ width: '100%', padding: '9px 12px', backgroundColor: '#111', border: '1px solid #333', borderRadius: 6, color: '#fff', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>Descricao</label>
+                  <textarea value={descricaoCardapio} onChange={e => setDescricaoCardapio(e.target.value)} rows={3} style={{ width: '100%', padding: '9px 12px', backgroundColor: '#111', border: '1px solid #333', borderRadius: 6, color: '#fff', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'Mulish, sans-serif', boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>Cor Principal</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input type="color" value={temaCor} onChange={e => setTemaCor(e.target.value)} style={{ width: 48, height: 36, borderRadius: 6, border: '1px solid #333', cursor: 'pointer', backgroundColor: 'transparent' }} />
+                    <input value={temaCor} onChange={e => setTemaCor(e.target.value)} placeholder="#ef4239" style={{ width: 120, padding: '9px 12px', backgroundColor: '#111', border: '1px solid #333', borderRadius: 6, color: '#fff', fontSize: 13, outline: 'none', fontFamily: 'monospace' }} />
+                    <div style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: temaCor }} />
+                  </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' as const }}>
-                {[
-                  { label: 'Delivery', icon: Bike, ativo: deliveryAtivo, set: setDeliveryAtivo },
-                  { label: 'Retirada', icon: ShoppingBag, ativo: retiradaAtivo, set: setRetiradaAtivo },
-                  { label: 'Consumo no Local', icon: UtensilsCrossed, ativo: consumoLocalAtivo, set: setConsumoLocalAtivo },
-                ].map(({ label, icon: Icon, ativo, set }) => (
-                  <div key={label} style={{
-                    flex: 1, minWidth: '180px',
-                    padding: '16px',
-                    borderRadius: '10px',
-                    border: `1px solid ${ativo ? '#ef4239' : '#292929'}`,
-                    backgroundColor: ativo ? '#281615' : '#111',
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Icon size={16} color={ativo ? '#ef4239' : '#888'} />
-                        <span style={{ color: ativo ? '#ef4239' : '#888', fontWeight: 600, fontSize: '14px' }}>{label}</span>
-                      </div>
-                      <button onClick={() => set(!ativo)} style={{
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        color: ativo ? '#22c55e' : '#444', padding: 0
-                      }}>
-                        {ativo ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
-                      </button>
+            </div>
+
+            <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 10, padding: 20 }}>
+              <p style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 700, color: '#fff' }}>Tipos de Pedido</p>
+              {[
+                { label: 'Delivery', desc: 'Pedidos para entrega em domicilio', icon: Bike, val: deliveryAtivo, set: setDeliveryAtivo },
+                { label: 'Retirada', desc: 'Cliente retira no estabelecimento', icon: ShoppingBag, val: retiradaAtivo, set: setRetiradaAtivo },
+                { label: 'Consumo Local', desc: 'Pedido na mesa pelo cardapio digital', icon: UtensilsCrossed, val: consumoLocalAtivo, set: setConsumoLocalAtivo },
+              ].map(item => (
+                <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #222' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <item.icon size={18} color={item.val ? '#ef4239' : '#555'} />
+                    <div>
+                      <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: item.val ? '#fff' : '#888' }}>{item.label}</p>
+                      <p style={{ margin: 0, fontSize: 11, color: '#666' }}>{item.desc}</p>
                     </div>
-                    {label === 'Delivery' && ativo && (
-                      <div>
-                        <label style={labelStyle}>Pedido Mínimo</label>
-                        <input
-                          type='text'
-                          value={`R$ ${pedidoMinimo}`}
-                          onChange={e => setPedidoMinimo(e.target.value.replace('R$ ', ''))}
-                          style={{ ...inputStyle, fontSize: '13px' }}
-                        />
-                      </div>
-                    )}
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Botao salvar */}
-            <button style={{
-              padding: '12px 32px',
-              borderRadius: '8px',
-              border: 'none',
-              backgroundColor: '#ef4239',
-              color: '#fff',
-              fontWeight: 700,
-              fontSize: '14px',
-              cursor: 'pointer',
-              fontFamily: 'Mulish, sans-serif',
-            }}>
-              Salvar Configurações
-            </button>
-          </>
-        )}
-
-        {/* ====== ABA HORARIO ====== */}
-        {activeTab === 'horario' && (
-          <div style={cardStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
-              <Clock size={18} color='#ef4239' />
-              <span style={{ color: '#fff', fontWeight: 700, fontSize: '15px' }}>Horário de Atendimento</span>
-            </div>
-            {horarios.map((h, i) => (
-              <div key={h.dia} style={{
-                display: 'flex', alignItems: 'center', gap: '16px',
-                padding: '12px 0',
-                borderBottom: i < horarios.length - 1 ? '1px solid #222' : 'none'
-              }}>
-                <div style={{ width: '90px', color: h.ativo ? '#e6e6e6' : '#444', fontSize: '14px', fontWeight: 500 }}>{h.dia}</div>
-                <button onClick={() => {
-                  const updated = [...horarios]
-                  updated[i].ativo = !updated[i].ativo
-                  setHorarios(updated)
-                }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: h.ativo ? '#22c55e' : '#444', padding: 0 }}>
-                  {h.ativo ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
-                </button>
-                {h.ativo ? (
-                  <>
-                    <input
-                      type='time'
-                      value={h.abertura}
-                      onChange={e => {
-                        const updated = [...horarios]
-                        updated[i].abertura = e.target.value
-                        setHorarios(updated)
-                      }}
-                      style={{ ...inputStyle, width: '120px', colorScheme: 'dark' }}
-                    />
-                    <span style={{ color: '#888' }}>até</span>
-                    <input
-                      type='time'
-                      value={h.fechamento}
-                      onChange={e => {
-                        const updated = [...horarios]
-                        updated[i].fechamento = e.target.value
-                        setHorarios(updated)
-                      }}
-                      style={{ ...inputStyle, width: '120px', colorScheme: 'dark' }}
-                    />
-                  </>
-                ) : (
-                  <span style={{ color: '#444', fontSize: '13px' }}>Fechado</span>
-                )}
-              </div>
-            ))}
-            <button style={{
-              marginTop: '20px',
-              padding: '12px 32px',
-              borderRadius: '8px',
-              border: 'none',
-              backgroundColor: '#ef4239',
-              color: '#fff',
-              fontWeight: 700,
-              fontSize: '14px',
-              cursor: 'pointer',
-              fontFamily: 'Mulish, sans-serif',
-            }}>
-              Salvar Horários
-            </button>
-          </div>
-        )}
-
-        {/* ====== ABA AREA DE ENTREGA ====== */}
-        {activeTab === 'entrega' && (
-          <div style={cardStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <MapPin size={18} color='#ef4239' />
-                <span style={{ color: '#fff', fontWeight: 700, fontSize: '15px' }}>Áreas de Entrega</span>
-              </div>
-              <button
-                onClick={() => setAreas([...areas, { id: Date.now(), bairro: '', taxa: 0, tempo: '30-45 min' }])}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                  padding: '8px 14px', borderRadius: '8px',
-                  border: 'none', backgroundColor: '#ef4239',
-                  color: '#fff', fontWeight: 600, fontSize: '13px',
-                  cursor: 'pointer', fontFamily: 'Mulish, sans-serif',
-                }}>
-                <Plus size={14} />
-                Adicionar Área
-              </button>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', color: '#888', fontSize: '12px', marginBottom: '8px', padding: '0 4px' }}>
-              <span style={{ flex: 2 }}>Bairro / Região</span>
-              <span style={{ flex: 1 }}>Taxa de Entrega</span>
-              <span style={{ flex: 1 }}>Tempo Estimado</span>
-              <span style={{ width: '40px' }}></span>
-            </div>
-            {areas.map((area, i) => (
-              <div key={area.id} style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
-                <input
-                  type='text'
-                  value={area.bairro}
-                  placeholder='Ex: Centro'
-                  onChange={e => {
-                    const updated = [...areas]
-                    updated[i].bairro = e.target.value
-                    setAreas(updated)
-                  }}
-                  style={{ ...inputStyle, flex: 2 }}
-                />
-                <div style={{ flex: 1, position: 'relative' as const }}>
-                  <span style={{ position: 'absolute' as const, left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#888', fontSize: '13px' }}>R$</span>
-                  <input
-                    type='number'
-                    value={area.taxa}
-                    onChange={e => {
-                      const updated = [...areas]
-                      updated[i].taxa = Number(e.target.value)
-                      setAreas(updated)
-                    }}
-                    style={{ ...inputStyle, paddingLeft: '28px' }}
-                  />
-                </div>
-                <input
-                  type='text'
-                  value={area.tempo}
-                  placeholder='30-45 min'
-                  onChange={e => {
-                    const updated = [...areas]
-                    updated[i].tempo = e.target.value
-                    setAreas(updated)
-                  }}
-                  style={{ ...inputStyle, flex: 1 }}
-                />
-                <button
-                  onClick={() => setAreas(areas.filter((_, idx) => idx !== i))}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4239', padding: '8px', flexShrink: 0 }}>
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            ))}
-            <button style={{
-              marginTop: '16px',
-              padding: '12px 32px',
-              borderRadius: '8px',
-              border: 'none',
-              backgroundColor: '#ef4239',
-              color: '#fff',
-              fontWeight: 700,
-              fontSize: '14px',
-              cursor: 'pointer',
-              fontFamily: 'Mulish, sans-serif',
-            }}>
-              Salvar Áreas
-            </button>
-          </div>
-        )}
-
-        {/* ====== ABA PAGAMENTO ====== */}
-        {activeTab === 'pagamento' && (
-          <div style={cardStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
-              <CreditCard size={18} color='#ef4239' />
-              <span style={{ color: '#fff', fontWeight: 700, fontSize: '15px' }}>Formas de Pagamento</span>
-            </div>
-            {formasPag.map((forma, i) => (
-              <div key={forma.id} style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '14px 0',
-                borderBottom: i < formasPag.length - 1 ? '1px solid #222' : 'none'
-              }}>
-                <span style={{ color: forma.ativo ? '#e6e6e6' : '#555', fontSize: '14px' }}>{forma.nome}</span>
-                <button onClick={() => {
-                  const updated = [...formasPag]
-                  updated[i].ativo = !updated[i].ativo
-                  setFormasPag(updated)
-                }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: forma.ativo ? '#22c55e' : '#444', padding: 0 }}>
-                  {forma.ativo ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
-                </button>
-              </div>
-            ))}
-            <button style={{
-              marginTop: '20px',
-              padding: '12px 32px',
-              borderRadius: '8px',
-              border: 'none',
-              backgroundColor: '#ef4239',
-              color: '#fff',
-              fontWeight: 700,
-              fontSize: '14px',
-              cursor: 'pointer',
-              fontFamily: 'Mulish, sans-serif',
-            }}>
-              Salvar
-            </button>
-          </div>
-        )}
-
-        {/* ====== ABA CUPONS ====== */}
-        {activeTab === 'cupons' && (
-          <div>
-            <div style={{ ...cardStyle, marginBottom: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Tag size={18} color='#ef4239' />
-                  <span style={{ color: '#fff', fontWeight: 700, fontSize: '15px' }}>Cupons de Desconto</span>
-                </div>
-                <button style={{
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                  padding: '8px 14px', borderRadius: '8px',
-                  border: 'none', backgroundColor: '#ef4239',
-                  color: '#fff', fontWeight: 600, fontSize: '13px',
-                  cursor: 'pointer', fontFamily: 'Mulish, sans-serif',
-                }}>
-                  <Plus size={14} />
-                  Novo Cupom
-                </button>
-              </div>
-              {cupons.map((cupom, i) => (
-                <div key={cupom.id} style={{
-                  display: 'flex', alignItems: 'center', gap: '16px',
-                  padding: '14px',
-                  borderRadius: '10px',
-                  border: `1px solid ${cupom.ativo ? '#ef423940' : '#222'}`,
-                  backgroundColor: cupom.ativo ? '#281615' : '#111',
-                  marginBottom: '8px',
-                }}>
-                  <div style={{
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    backgroundColor: '#ef423920',
-                    color: '#ef4239',
-                    fontWeight: 700,
-                    fontSize: '13px',
-                    fontFamily: 'monospace',
-                    letterSpacing: '1px',
-                  }}>
-                    {cupom.codigo}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: '#e6e6e6', fontSize: '14px' }}>
-                      {cupom.tipo === 'frete' ? 'Frete Grátis' : `${cupom.desconto}% de desconto`}
-                    </div>
-                    <div style={{ color: '#888', fontSize: '12px' }}>{cupom.usos}/{cupom.limite} usos</div>
-                  </div>
-                  <div style={{
-                    padding: '4px 10px',
-                    borderRadius: '999px',
-                    backgroundColor: cupom.ativo ? '#22c55e20' : '#333',
-                    color: cupom.ativo ? '#22c55e' : '#555',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                  }}>
-                    {cupom.ativo ? 'Ativo' : 'Inativo'}
-                  </div>
-                  <button onClick={() => {
-                    const updated = [...cupons]
-                    updated[i].ativo = !updated[i].ativo
-                    setCupons(updated)
-                  }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: cupom.ativo ? '#22c55e' : '#444', padding: 0 }}>
-                    {cupom.ativo ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
+                  <button onClick={() => item.set(!item.val)} style={{ width: 44, height: 24, borderRadius: 12, border: 'none', backgroundColor: item.val ? '#ef4239' : '#333', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
+                    <div style={{ position: 'absolute', top: 3, left: item.val ? 22 : 3, width: 18, height: 18, borderRadius: '50%', backgroundColor: '#fff', transition: 'left 0.2s' }} />
                   </button>
                 </div>
               ))}
             </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 10, padding: 16 }}>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 6 }}>Pedido Minimo (R$)</label>
+                <input type="number" value={pedidoMinimo} onChange={e => setPedidoMinimo(e.target.value)} style={{ width: '100%', padding: '9px 12px', backgroundColor: '#111', border: '1px solid #333', borderRadius: 6, color: '#fff', fontSize: 14, fontWeight: 700, outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+              <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 10, padding: 16 }}>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 6 }}>Taxa de Entrega (R$)</label>
+                <input type="number" value={taxaEntrega} onChange={e => setTaxaEntrega(e.target.value)} style={{ width: '100%', padding: '9px 12px', backgroundColor: '#111', border: '1px solid #333', borderRadius: 6, color: '#fff', fontSize: 14, fontWeight: 700, outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+            </div>
           </div>
         )}
 
+        {/* HORARIO */}
+        {activeTab === 'horario' && (
+          <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 10, overflow: 'hidden' }}>
+            <div style={{ padding: '16px', borderBottom: '1px solid #292929' }}>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#fff' }}>Horario de Funcionamento</p>
+              <p style={{ margin: '4px 0 0', fontSize: 12, color: '#888' }}>Define quando seu cardapio fica disponivel para pedidos</p>
+            </div>
+            {DIAS.map((dia, idx) => (
+              <div key={dia} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 16px', borderBottom: idx < 6 ? '1px solid #1f1f1f' : 'none' }}>
+                <button onClick={() => {
+                  const h = [...horarios]; h[idx] = { ...h[idx], aberto: !h[idx].aberto }; setHorarios(h)
+                }} style={{ width: 44, height: 24, borderRadius: 12, border: 'none', backgroundColor: horarios[idx]?.aberto ? '#ef4239' : '#333', cursor: 'pointer', position: 'relative' }}>
+                  <div style={{ position: 'absolute', top: 3, left: horarios[idx]?.aberto ? 22 : 3, width: 18, height: 18, borderRadius: '50%', backgroundColor: '#fff' }} />
+                </button>
+                <span style={{ fontSize: 13, fontWeight: 600, color: horarios[idx]?.aberto ? '#fff' : '#555', width: 70 }}>{dia}</span>
+                {horarios[idx]?.aberto ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="time" value={horarios[idx]?.abre || '08:00'} onChange={e => { const h = [...horarios]; h[idx] = { ...h[idx], abre: e.target.value }; setHorarios(h) }}
+                      style={{ padding: '5px 10px', backgroundColor: '#111', border: '1px solid #333', borderRadius: 6, color: '#fff', fontSize: 13, outline: 'none' }} />
+                    <span style={{ color: '#555' }}>ate</span>
+                    <input type="time" value={horarios[idx]?.fecha || '23:00'} onChange={e => { const h = [...horarios]; h[idx] = { ...h[idx], fecha: e.target.value }; setHorarios(h) }}
+                      style={{ padding: '5px 10px', backgroundColor: '#111', border: '1px solid #333', borderRadius: 6, color: '#fff', fontSize: 13, outline: 'none' }} />
+                  </div>
+                ) : (
+                  <span style={{ fontSize: 13, color: '#555' }}>Fechado</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ENTREGA */}
+        {activeTab === 'entrega' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 10, padding: 20 }}>
+              <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700 }}>Area de Entrega</p>
+              <p style={{ margin: '0 0 16px', fontSize: 12, color: '#888' }}>Configure os bairros e taxas de entrega</p>
+              <div style={{ backgroundColor: '#111', border: '1px dashed #333', borderRadius: 8, padding: 40, textAlign: 'center' }}>
+                <MapPin size={32} color="#444" style={{ marginBottom: 12 }} />
+                <p style={{ color: '#666', fontSize: 14, margin: '0 0 4px' }}>Mapa de area de entrega</p>
+                <p style={{ color: '#555', fontSize: 12, margin: 0 }}>Configuracao de bairros em breve</p>
+              </div>
+            </div>
+            <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 10, padding: 20 }}>
+              <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700 }}>Taxas por Distancia</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>Taxa Padrao (R$)</label>
+                  <input type="number" value={taxaEntrega} onChange={e => setTaxaEntrega(e.target.value)} style={{ width: '100%', padding: '9px 12px', backgroundColor: '#111', border: '1px solid #333', borderRadius: 6, color: '#fff', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>Gratis acima de (R$)</label>
+                  <input type="number" placeholder="Ex: 50" style={{ width: '100%', padding: '9px 12px', backgroundColor: '#111', border: '1px solid #333', borderRadius: 6, color: '#fff', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* PAGAMENTOS */}
+        {activeTab === 'pagamento' && (
+          <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 10, overflow: 'hidden' }}>
+            <div style={{ padding: '16px', borderBottom: '1px solid #292929' }}>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Formas de Pagamento</p>
+            </div>
+            {formasPag.map((forma, idx) => (
+              <div key={forma.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: idx < formasPag.length - 1 ? '1px solid #1f1f1f' : 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <CreditCard size={16} color={forma.ativo ? '#ef4239' : '#555'} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: forma.ativo ? '#fff' : '#888' }}>{forma.label}</span>
+                </div>
+                <button onClick={() => { const f = [...formasPag]; f[idx] = { ...f[idx], ativo: !f[idx].ativo }; setFormasPag(f) }}
+                  style={{ width: 44, height: 24, borderRadius: 12, border: 'none', backgroundColor: forma.ativo ? '#ef4239' : '#333', cursor: 'pointer', position: 'relative' }}>
+                  <div style={{ position: 'absolute', top: 3, left: forma.ativo ? 22 : 3, width: 18, height: 18, borderRadius: '50%', backgroundColor: '#fff' }} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* CUPONS */}
+        {activeTab === 'cupons' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowNovoCupom(!showNovoCupom)} style={{ padding: '8px 16px', backgroundColor: '#ef4239', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'Mulish, sans-serif' }}>
+                <Plus size={14} /> Novo Cupom
+              </button>
+            </div>
+
+            {showNovoCupom && (
+              <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 10, padding: 20 }}>
+                <p style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 700 }}>Novo Cupom</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>Codigo</label>
+                    <input value={novoCupom.codigo} onChange={e => setNovoCupom(p => ({ ...p, codigo: e.target.value.toUpperCase() }))} placeholder="DESCONTO10" style={{ width: '100%', padding: '9px 12px', backgroundColor: '#111', border: '1px solid #333', borderRadius: 6, color: '#fff', fontSize: 13, outline: 'none', fontFamily: 'monospace', letterSpacing: 1, boxSizing: 'border-box' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>Tipo</label>
+                    <select value={novoCupom.desconto_tipo} onChange={e => setNovoCupom(p => ({ ...p, desconto_tipo: e.target.value }))} style={{ width: '100%', padding: '9px 12px', backgroundColor: '#111', border: '1px solid #333', borderRadius: 6, color: '#fff', fontSize: 13, outline: 'none' }}>
+                      <option value="percentual">Percentual (%)</option>
+                      <option value="fixo">Valor fixo (R$)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>Desconto</label>
+                    <input type="number" value={novoCupom.desconto_valor} onChange={e => setNovoCupom(p => ({ ...p, desconto_valor: e.target.value }))} style={{ width: '100%', padding: '9px 12px', backgroundColor: '#111', border: '1px solid #333', borderRadius: 6, color: '#fff', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>Usos Maximos</label>
+                    <input type="number" value={novoCupom.usos_maximos} onChange={e => setNovoCupom(p => ({ ...p, usos_maximos: e.target.value }))} placeholder="Ilimitado" style={{ width: '100%', padding: '9px 12px', backgroundColor: '#111', border: '1px solid #333', borderRadius: 6, color: '#fff', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                  <button onClick={adicionarCupom} disabled={!novoCupom.codigo} style={{ flex: 1, padding: '10px', backgroundColor: novoCupom.codigo ? '#ef4239' : '#333', border: 'none', borderRadius: 6, color: '#fff', fontWeight: 700, cursor: novoCupom.codigo ? 'pointer' : 'not-allowed', fontFamily: 'Mulish, sans-serif' }}>Adicionar</button>
+                  <button onClick={() => setShowNovoCupom(false)} style={{ padding: '10px 16px', backgroundColor: '#111', border: '1px solid #333', borderRadius: 6, color: '#888', cursor: 'pointer', fontFamily: 'Mulish, sans-serif' }}>Cancelar</button>
+                </div>
+              </div>
+            )}
+
+            {cupons.length === 0 ? (
+              <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 10, padding: 40, textAlign: 'center' }}>
+                <Tag size={32} color="#333" style={{ marginBottom: 12 }} />
+                <p style={{ color: '#888', margin: 0 }}>Nenhum cupom cadastrado</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {cupons.map(c => (
+                  <div key={c.id || c.codigo} style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: 8, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <span style={{ fontSize: 16, fontWeight: 800, color: '#fff', letterSpacing: 1, fontFamily: 'monospace' }}>{c.codigo}</span>
+                      <span style={{ marginLeft: 12, fontSize: 14, fontWeight: 700, color: '#ef4239' }}>
+                        {c.desconto_tipo === 'percentual' ? `${c.desconto_valor}% OFF` : `R$ ${c.desconto_valor} OFF`}
+                      </span>
+                    </div>
+                    <button onClick={() => removerCupom(c.id, c.codigo)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 6 }}>
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Botao Salvar (exceto cupons) */}
+        {activeTab !== 'cupons' && (
+          <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end' }}>
+            <button onClick={salvarConfig} disabled={saving} style={{
+              padding: '10px 24px', backgroundColor: savedOk ? '#22c55e' : '#ef4239', border: 'none', borderRadius: 8,
+              color: '#fff', fontWeight: 700, fontSize: 14, cursor: saving ? 'wait' : 'pointer',
+              display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'Mulish, sans-serif', transition: 'background 0.3s'
+            }}>
+              {savedOk ? <CheckCircle size={16} /> : saving ? <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={16} />}
+              {savedOk ? 'Salvo!' : saving ? 'Salvando...' : 'Salvar Alteracoes'}
+            </button>
+          </div>
+        )}
       </div>
+      <style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style>
     </div>
   )
 }
 
 export default function CardapioDigitalPage() {
-  return (
-    <Suspense fallback={<div style={{ backgroundColor: '#111', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontFamily: 'Mulish, sans-serif' }}>Carregando...</div>}>
-      <CardapioDigitalContent />
-    </Suspense>
-  )
+  return <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: '#111', color: '#888', fontFamily: 'Mulish, sans-serif' }}>Carregando...</div>}><CardapioDigitalContent /></Suspense>
 }
