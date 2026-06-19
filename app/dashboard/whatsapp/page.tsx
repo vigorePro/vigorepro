@@ -95,6 +95,12 @@ function WhatsAppContent() {
     if (!estabelecimentoId) return
     const load = async () => { setLoading(true); await fetchConversas(estabelecimentoId); setLoading(false) }
     load()
+    // Supabase Realtime
+    const channel = supabase
+      .channel('wa-' + estabelecimentoId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversas_ia', filter: 'estabelecimento_id=eq.' + estabelecimentoId }, () => { fetchConversas(estabelecimentoId) })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
   }, [estabelecimentoId, fetchConversas])
 
   useEffect(() => {
@@ -271,15 +277,15 @@ function WhatsAppContent() {
         <div style={{ padding: '24px', flex: 1, overflowY: 'auto' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
             {[
-              { titulo: 'Confirmacao de Pedido', desc: 'Envia mensagem automatica quando pedido e confirmado', ativo: true, icone: '🛍' },
-              { titulo: 'Saiu para Entrega', desc: 'Notifica cliente quando entregador sai com o pedido', ativo: true, icone: '🛵' },
-              { titulo: 'Pedido Entregue', desc: 'Confirma entrega e solicita avaliacao', ativo: false, icone: '✅' },
-              { titulo: 'Boas-vindas', desc: 'Mensagem automatica para novos clientes', ativo: true, icone: '👋' },
-              { titulo: 'Cardapio do Dia', desc: 'Envia destaques do cardapio todos os dias', ativo: false, icone: '📋' },
-              { titulo: 'Recuperar Clientes', desc: 'Mensagem para clientes que nao pedem ha 15 dias', ativo: false, icone: '💡' },
+              { titulo: 'Confirmacao de Pedido', desc: 'Envia mensagem automatica quando pedido e confirmado', ativo: true, icone: '📦' },
+              { titulo: 'Saiu para Entrega', desc: 'Notifica cliente quando entregador sai com o pedido', ativo: true, icone: 'BIKE' },
+              { titulo: 'Pedido Entregue', desc: 'Confirma entrega e solicita avaliacao', ativo: false, icone: 'CHECK' },
+              { titulo: 'Boas-vindas', desc: 'Mensagem automatica para novos clientes', ativo: true, icone: 'WAVE' },
+              { titulo: 'Cardapio do Dia', desc: 'Envia destaques do cardapio todos os dias', ativo: false, icone: 'MENU' },
+              { titulo: 'Recuperar Clientes', desc: 'Mensagem para clientes que nao pedem ha 15 dias', ativo: false, icone: 'IDEA' },
             ].map((auto, i) => (
               <div key={i} style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: '12px', padding: '18px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-                <span style={{ fontSize: '28px' }}>{auto.icone}</span>
+                <div style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: auto.ativo ? '#ef423922' : '#1f1f1f', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Zap size={16} color={auto.ativo ? '#ef4239' : '#555'} /></div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                     <span style={{ fontSize: '14px', fontWeight: 600, color: '#e6e6e6' }}>{auto.titulo}</span>
