@@ -66,7 +66,14 @@ function ClientesContent() {
   }, [estabelecimentoId, busca, ordenacao, ordemAsc, pagina])
 
   useEffect(() => { fetchEstabelecimento() }, [fetchEstabelecimento])
-  useEffect(() => { if (estabelecimentoId) fetchClientes() }, [estabelecimentoId, fetchClientes])
+  useEffect(() => {
+    if (!estabelecimentoId) return
+    fetchClientes()
+    const ch = supabase.channel('cli-' + estabelecimentoId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clientes', filter: 'estabelecimento_id=eq.' + estabelecimentoId }, () => { fetchClientes() })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [estabelecimentoId, fetchClientes])
 
   const salvarCliente = async () => {
     if (!form.nome || !estabelecimentoId) return
