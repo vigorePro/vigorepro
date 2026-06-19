@@ -81,6 +81,10 @@ function FiscalContent() {
       setLoading(false)
     }
     load()
+      const ch = supabase.channel('fiscal-' + estabelecimentoId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notas_fiscais', filter: 'estabelecimento_id=eq.' + estabelecimentoId }, () => { fetchData(estabelecimentoId) })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
   }, [estabelecimentoId, fetchData])
 
   const notasFiltradas = notas.filter(n => {
