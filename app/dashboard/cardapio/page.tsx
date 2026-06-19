@@ -49,6 +49,17 @@ function CardapioContent() {
     if (slug) carregarDados()
   }, [slug])
 
+  // Supabase Realtime
+  useEffect(() => {
+    if (!estabelecimentoId) return
+    const ch = supabase
+      .channel('card-' + estabelecimentoId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'produtos', filter: 'estabelecimento_id=eq.' + estabelecimentoId }, () => { carregarDados() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias', filter: 'estabelecimento_id=eq.' + estabelecimentoId }, () => { carregarDados() })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [estabelecimentoId])
+
   async function carregarDados() {
     setCarregando(true)
     try {
