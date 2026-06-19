@@ -67,7 +67,7 @@ function CardapioPublico({ params }: { params: { slug: string } }) {
     setEstabelecimento(est)
 
     const [prodR, catR] = await Promise.all([
-      supabase.from('produtos').select('*').eq('estabelecimento_id', est.id).eq('ativo', true).order('nome'),
+      supabase.from('produtos').select('*').eq('estabelecimento_id', est.id).order('nome'),
       supabase.from('categorias').select('*').eq('estabelecimento_id', est.id).order('ordem')
     ])
     if (prodR.data) setProdutos(prodR.data)
