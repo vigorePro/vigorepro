@@ -51,6 +51,20 @@ async function buscarHistorico(telefone: string, estabelecimento_id: string) {
 }
 
 // Salva mensagem no historico
+async function buscarCliente(telefone: string, estabelecimento_id: string) {
+  const formatos = [telefone, `+55${telefone}`, `55${telefone}`]
+  for (const fmt of formatos) {
+    const { data } = await supabase
+      .from('clientes')
+      .select('nome, telefone')
+      .eq('estabelecimento_id', estabelecimento_id)
+      .eq('telefone', fmt)
+      .maybeSingle()
+    if (data) return data
+  }
+  return null
+}
+
 async function salvarMensagem(telefone: string, estabelecimento_id: string, role: 'user' | 'assistant', content: string) {
     await supabase.from('conversas_ia').insert({
           telefone,
@@ -97,7 +111,8 @@ async function processarComIA(
     cardapio: string,
     estabelecimento: { nome: string; slug: string; endereco: string },
     telefone: string,
-    estabelecimento_id: string
+    estabelecimento_id: string,
+    clienteExistente: { nome: string; telefone: string } | null
   ): Promise<string> {
     const systemPrompt = `Voce e a MEL, a atendente virtual da Dolce & Dolce Confeitaria e Padaria.
     Voce e simpatica, acolhedora, eficiente e fala de forma informal e proxima, como uma amiga que conhece bem o cardapio.
@@ -201,7 +216,12 @@ async function processarComIA(
     9. O campo "categoria" de cada item deve ser o nome exato da categoria do produto no cardapio
     10. O campo "preco" de cada item deve ser o preco EXATO do produto no cardapio. O "valor_total" deve ser a soma de (preco * quantidade) de todos os itens
     11. Quando o cliente pedir para ver o cardapio ou quiser conhecer os produtos, envie o link: https://dolcedolce.vigorepro.com.br/cardapio?slug=dolcedolce
-    12. Mantenha respostas curtas e naturais para WhatsApp`
+    12. Mantenha respostas curtas e naturais para WhatsApp
+
+    IDENTIFICACAO DO CLIENTE:
+    - O numero de telefone do cliente e: ${telefone}
+    - ${clienteExistente ? `O cliente JA ESTA CADASTRADO no sistema. Nome registrado: ${clienteExistente.nome}. Cumprimente-o pelo nome: "Ola, ${clienteExistente.nome}! Como posso ajudar?"` : `O cliente NAO esta cadastrado. Apos se apresentar, peca o nome do cliente educadamente, explicando que e para manter um melhor controle e para enviar promocoes e ofertas da padaria diretamente a ele.`}
+`
 
   const messages = [
         ...historico.map((h) => ({
@@ -249,10 +269,10 @@ async function processarComIA(
                     console.error('Erro ao registrar CRM:', crmErr)
           }
 
-          return `Pedido #${numeroPedido} registrado com sucesso! 🎉\n\nVoce receberá atualizações aqui quando seu pedido estiver pronto. Obrigado!`
+          return `Pedido #${numeroPedido} registrado com sucesso! ð\n\nVoce receberÃ¡ atualizaÃ§Ãµes aqui quando seu pedido estiver pronto. Obrigado!`
         } catch (e) {
                 console.error('Erro ao criar pedido:', e)
-                return 'Houve um erro ao registrar seu pedido. Pode repetir a confirmação?'
+                return 'Houve um erro ao registrar seu pedido. Pode repetir a confirmaÃ§Ã£o?'
         }
   }
 
@@ -326,10 +346,11 @@ export async function POST(req: NextRequest) {
               return NextResponse.json({ ok: true })
       }
 
-      // Busca cardapio e historico em paralelo
-      const [cardapio, historico] = await Promise.all([
+      // Busca cardapio, historico e cliente em paralelo
+      const [cardapio, historico, clienteExistente] = await Promise.all([
               buscarCardapio(estabelecimento.id),
               buscarHistorico(telefone, estabelecimento.id),
+              buscarCliente(telefone, estabelecimento.id),
             ])
 
       // Salva mensagem do usuario
@@ -342,7 +363,8 @@ export async function POST(req: NextRequest) {
               cardapio,
               estabelecimento,
               telefone,
-              estabelecimento.id
+              estabelecimento.id,
+              clienteExistente
             )
 
       // Salva resposta da IA
