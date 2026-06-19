@@ -38,6 +38,8 @@ function PixContent() {
   const [copied, setCopied] = useState(false)
   const [saving, setSaving] = useState(false)
   const [configForm, setConfigForm] = useState({ chave: '', tipo_chave: 'email', nome_titular: '' })
+  const [showQR, setShowQR] = useState(false)
+  const [valorQR, setValorQR] = useState('')
 
   const fetchEstabelecimento = useCallback(async () => {
     if (!slug) return
@@ -186,9 +188,49 @@ function PixContent() {
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px', background: copied ? 'rgba(34,197,94,0.15)' : '#111', border: '1px solid ' + (copied ? 'rgba(34,197,94,0.4)' : '#333'), borderRadius: '8px', color: copied ? '#22c55e' : '#e6e6e6', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
                   {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Copiado!' : 'Copiar Chave'}
                 </button>
-                <button style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px', background: '#111', border: '1px solid #333', borderRadius: '8px', color: '#e6e6e6', cursor: 'pointer', fontSize: '13px' }}>
-                  <QrCode size={14} /> QR Code
+                <button onClick={() => setShowQR(!showQR)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px', background: showQR ? '#ef423922' : '#111', border: showQR ? '1px solid #ef4239' : '1px solid #333', borderRadius: '8px', color: showQR ? '#ef4239' : '#e6e6e6', cursor: 'pointer', fontSize: '13px' }}>
+                  <QrCode size={14} /> {showQR ? 'Fechar QR' : 'QR Code'}
                 </button>
+                {/* QR Code Modal Inline */}
+                {showQR && (
+                  <div style={{ marginTop: 12, backgroundColor: '#0a0a0a', border: '1px solid #292929', borderRadius: 10, padding: 20, textAlign: 'center' }}>
+                    {config.chave ? (
+                      <>
+                        <p style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700, color: '#fff' }}>QR Code para Receber Pix</p>
+                        <div style={{ backgroundColor: '#fff', borderRadius: 12, padding: 12, display: 'inline-block', marginBottom: 14 }}>
+                          <img
+                            src={'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(config.chave + (valorQR ? ' R$ ' + valorQR : ''))}
+                            alt="QR Code Pix"
+                            style={{ width: 180, height: 180, display: 'block' }}
+                          />
+                        </div>
+                        <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: '#fff' }}>{config.nome_titular}</p>
+                        <p style={{ margin: '0 0 14px', fontSize: 12, color: '#888' }}>{config.chave}</p>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 14 }}>
+                          <input
+                            type="number"
+                            value={valorQR}
+                            onChange={e => setValorQR(e.target.value)}
+                            placeholder="Valor (opcional)"
+                            style={{ padding: '7px 12px', backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: 6, color: '#fff', fontSize: 13, width: 150, outline: 'none' }}
+                          />
+                        </div>
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(config.chave); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+                          style={{ padding: '8px 16px', backgroundColor: copied ? '#22c55e22' : '#1a1a1a', border: copied ? '1px solid #22c55e' : '1px solid #333', borderRadius: 6, color: copied ? '#22c55e' : '#fff', fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                        >
+                          {copied ? <Check size={13} /> : <Copy size={13} />}
+                          {copied ? 'Copiado!' : 'Copiar Chave Pix'}
+                        </button>
+                      </>
+                    ) : (
+                      <div style={{ padding: 20 }}>
+                        <QrCode size={32} color="#444" style={{ marginBottom: 10, display: 'block', margin: '0 auto 10px' }} />
+                        <p style={{ color: '#888', margin: 0, fontSize: 13 }}>Configure sua chave Pix para gerar o QR Code</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div style={{ marginTop: '14px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
                 <div style={{ background: '#111', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
