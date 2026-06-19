@@ -277,7 +277,7 @@ function WhatsAppContent() {
         <div style={{ padding: '24px', flex: 1, overflowY: 'auto' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
             {[
-              { titulo: 'Confirmacao de Pedido', desc: 'Envia mensagem automatica quando pedido e confirmado', ativo: true, icone: '📦' },
+              { titulo: 'Confirmacao de Pedido', desc: 'Envia mensagem automatica quando pedido e confirmado', ativo: true, icone: 'BAG' },
               { titulo: 'Saiu para Entrega', desc: 'Notifica cliente quando entregador sai com o pedido', ativo: true, icone: 'BIKE' },
               { titulo: 'Pedido Entregue', desc: 'Confirma entrega e solicita avaliacao', ativo: false, icone: 'CHECK' },
               { titulo: 'Boas-vindas', desc: 'Mensagem automatica para novos clientes', ativo: true, icone: 'WAVE' },
