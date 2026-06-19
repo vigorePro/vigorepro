@@ -67,7 +67,7 @@ async function buscarCardapio(estabelecimento_id: string) {
 // Busca cliente pelo telefone/sessionId no CRM
 async function buscarCliente(sessionId: string, estabelecimento_id: string) {
   // Tenta buscar pelo telefone
-  const { data } = await supabase.from('clientes').select('nome, telefone, email, total_pedidos, total_gasto').eq('estabelecimento_id', estabelecimento_id).or(`telefone.eq.${sessionId},telefone.eq.+55${sessionId},telefone.eq.55${sessionId}`).limit(1)
+  const { data } = await supabase.from('clientes').select('nome, telefone, email, total_pedidos, total_gasto, endereco_preferido').eq('estabelecimento_id', estabelecimento_id).or(`telefone.eq.${sessionId},telefone.eq.+55${sessionId},telefone.eq.55${sessionId}`).limit(1)
   if (data && data.length > 0) return data[0]
   return null
 }
@@ -199,7 +199,7 @@ REGRAS TECNICAS:
 
 IDENTIFICACAO DO CLIENTE:
 ${clienteExistente ? 
-  `- O cliente JA ESTA CADASTRADO na base de dados. Nome: ${clienteExistente.nome}. Saudacao inicial OBRIGATORIA: use o nome dele, ex: "Ola, ${clienteExistente.nome}! Tudo bem?". Total de pedidos anteriores: ${clienteExistente.total_pedidos || 0}.` 
+  `- O cliente JA ESTA CADASTRADO na base de dados. Nome: ${clienteExistente.nome}. Saudacao inicial OBRIGATORIA: use o nome dele, ex: "Ola, ${clienteExistente.nome}! Tudo bem?". Total de pedidos anteriores: ${clienteExistente.total_pedidos || 0}.${clienteExistente.endereco_preferido ? ` ENDERECO SALVO: ${clienteExistente.endereco_preferido}. OBRIGATORIO: ao coletar endereco de entrega, pergunte primeiro: "Seu endereco ainda e ${clienteExistente.endereco_preferido}? :)" Se confirmar use esse. Se nao, peca o novo.` : ''}` 
   : `- O cliente NAO ESTA CADASTRADO. Na primeira interacao, apresente-se e PECA O NOME educadamente, explicando que e para manter controle e enviar promocoes exclusivas da loja. Ex: "Ola! Sou a MEL 😊 Para te atender melhor e enviar nossas promocoes, pode me dizer seu nome?"`
 }
 
@@ -251,6 +251,15 @@ CARDAPIO DIGITAL:
             itens: dados.itens,
             valor_total: dados.valor_total,
           })
+        // Salva endereco preferido no CRM
+        if (dados.endereco && dados.endereco !== 'RETIRADA' && dados.tipo_entrega === 'delivery') {
+          try {
+            await supabase.from('clientes')
+              .update({ endereco_preferido: dados.endereco })
+              .eq('estabelecimento_id', estabelecimento.id)
+              .or(`telefone.eq.${sessionId},telefone.eq.+55${sessionId},telefone.eq.55${sessionId}`)
+          } catch (endErr) { console.error('Erro ao salvar endereco:', endErr) }
+        }
         } catch (crmErr) {
           console.error('Erro ao registrar CRM:', crmErr)
         }
