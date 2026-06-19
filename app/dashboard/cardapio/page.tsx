@@ -285,8 +285,8 @@ function CardapioContent() {
                                 <span title="Delivery" style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', fontWeight: 'bold' }}>D</span>
                                 <span title="Mesa" style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', fontWeight: 'bold' }}>M</span>
                                 <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
-                                  <button onClick={() => { setProdutoEditando(produto); setModalAberto(true) }} style={{ width: '26px', height: '26px', borderRadius: '4px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#9ca3af', cursor: 'pointer', fontSize: '12px' }}></button>
-                                  <button onClick={() => excluirProduto(produto.id)} style={{ width: '26px', height: '26px', borderRadius: '4px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#ef4444', cursor: 'pointer', fontSize: '12px' }}></button>
+                                  <button onClick={() => { setProdutoEditando(produto); setModalAberto(true) }} style={{ width: '26px', height: '26px', borderRadius: '4px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#9ca3af', cursor: 'pointer', fontSize: '12px' }}>Ed</button>
+                                  <button onClick={() => excluirProduto(produto.id)} style={{ width: '26px', height: '26px', borderRadius: '4px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#ef4444', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Trash2 size={12} /></button>
                                 </div>
                               </div>
                             </div>
