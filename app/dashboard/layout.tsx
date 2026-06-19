@@ -52,7 +52,7 @@ function SidebarContent() {
         { label: 'Cardapio', href: '/dashboard/cardapio?slug=' + slug, icon: BookOpen },
         { label: 'Cardapio Digital', href: '/dashboard/cardapio-digital?slug=' + slug, icon: Globe },
         { label: 'Clientes', href: '/dashboard/clientes?slug=' + slug, icon: Users },
-        { label: 'Fidelidade CRM', href: '/dashboard/crm?slug=' + slug, icon: HandCoins },
+        { label: 'Fidelidade CRM', href: '/dashboard/fidelidade?slug=' + slug, icon: HandCoins },
       ]
     },
     {
