@@ -125,7 +125,7 @@ export default function ProdutosPage() {
                 {prodsCat.map(produto => (
                   <div key={produto.id} className="flex items-center gap-4 px-4 py-3">
                     <div className="w-14 h-14 rounded-xl overflow-hidden bg-[#1a1a1a] flex-shrink-0">
-                      {produto.imagem_url ? <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-2xl opacity-20">🎂</div>}
+                      {produto.imagem_url ? <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center opacity-20"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-white truncate">{produto.nome}</p>
@@ -156,7 +156,7 @@ export default function ProdutosPage() {
               {produtos.filter(p => !p.categoria_id).map(produto => (
                 <div key={produto.id} className="flex items-center gap-4 px-4 py-3">
                   <div className="w-14 h-14 rounded-xl overflow-hidden bg-[#1a1a1a] flex-shrink-0">
-                    {produto.imagem_url ? <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-2xl opacity-20">🎂</div>}
+                    {produto.imagem_url ? <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center opacity-20"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-white truncate">{produto.nome}</p>
@@ -180,7 +180,7 @@ export default function ProdutosPage() {
         )}
         {produtos.length === 0 && (
           <div className="text-center py-20">
-            <div className="text-5xl mb-4">🍽️</div>
+            <div className="mb-4 flex justify-center"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.3"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
             <p className="text-gray-500 mb-4">Nenhum produto cadastrado ainda</p>
             <button onClick={abrirNovo} className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-xl font-bold">Adicionar primeiro produto</button>
           </div>
