@@ -1,188 +1,217 @@
 'use client'
-
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabase'
+import { Plus, Search, RefreshCw, Phone, Mail, MapPin, ShoppingBag, TrendingUp, Star, X, Edit3, Trash2, ChevronDown, ChevronUp, Users, Download } from 'lucide-react'
 
 type Cliente = {
   id: string
   nome: string
-  telefone: string
-  email: string
-  endereco: string
-  created_at: string
-  total_pedidos: number
-  total_gasto: number
+  telefone?: string
+  email?: string
+  endereco?: string
+  cidade?: string
+  data_nascimento?: string
+  total_pedidos?: number
+  total_gasto?: number
+  ultimo_pedido?: string
+  cashback?: number
+  pontos?: number
+  criado_em: string
+  estabelecimento_id: string
 }
 
 function ClientesContent() {
   const searchParams = useSearchParams()
   const slug = searchParams.get('slug') || ''
-  const supabase = createClientComponentClient()
-
+  const [estabelecimentoId, setEstabelecimentoId] = useState('')
   const [clientes, setClientes] = useState<Cliente[]>([])
-  const [carregando, setCarregando] = useState(true)
   const [busca, setBusca] = useState('')
+  const [ordenacao, setOrdenacao] = useState<'nome' | 'total_gasto' | 'total_pedidos' | 'criado_em'>('nome')
+  const [ordemAsc, setOrdemAsc] = useState(true)
   const [pagina, setPagina] = useState(1)
-  const [porPagina] = useState(25)
-  const [modalAberto, setModalAberto] = useState(false)
-  const [clienteEditando, setClienteEditando] = useState<Partial<Cliente>>({})
-  const [salvando, setSalvando] = useState(false)
-  const [estabelecimentoId, setEstabelecimentoId] = useState<string | null>(null)
+  const [total, setTotal] = useState(0)
+  const [carregando, setCarregando] = useState(true)
+  const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null)
+  const [modalCadastro, setModalCadastro] = useState(false)
+  const [editando, setEditando] = useState<Cliente | null>(null)
+  const [form, setForm] = useState({ nome: '', telefone: '', email: '', endereco: '', cidade: '', data_nascimento: '' })
+  const POR_PAGINA = 25
 
-  useEffect(() => {
-    if (slug) carregarClientes()
+  // KPIs
+  const totalGasto = clientes.reduce((a, c) => a + (c.total_gasto || 0), 0)
+  const ticketMedio = clientes.length > 0 ? totalGasto / clientes.length : 0
+  const recorrentes = clientes.filter(c => (c.total_pedidos || 0) > 1).length
+
+  const fetchEstabelecimento = useCallback(async () => {
+    if (!slug) return
+    const { data } = await supabase.from('estabelecimentos').select('id').eq('slug', slug).single()
+    if (data) setEstabelecimentoId(data.id)
   }, [slug])
 
-  async function carregarClientes() {
+  const fetchClientes = useCallback(async () => {
+    if (!estabelecimentoId) return
     setCarregando(true)
-    try {
-      const { data: estab } = await supabase.from('estabelecimentos').select('*').eq('slug', slug).single()
-      if (!estab) return
-      setEstabelecimentoId(estab.id)
+    let query = supabase.from('clientes').select('*', { count: 'exact' })
+      .eq('estabelecimento_id', estabelecimentoId)
+      .order(ordenacao, { ascending: ordemAsc })
+      .range((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA - 1)
+    
+    if (busca) query = query.or(`nome.ilike.%${busca}%,telefone.ilike.%${busca}%,email.ilike.%${busca}%`)
+    
+    const { data, count } = await query
+    if (data) setClientes(data)
+    if (count !== null) setTotal(count)
+    setCarregando(false)
+  }, [estabelecimentoId, busca, ordenacao, ordemAsc, pagina])
 
-      const { data } = await supabase
-        .from('clientes')
-        .select('*')
-        .eq('estabelecimento_id', estab.id)
-        .order('nome')
+  useEffect(() => { fetchEstabelecimento() }, [fetchEstabelecimento])
+  useEffect(() => { if (estabelecimentoId) fetchClientes() }, [estabelecimentoId, fetchClientes])
 
-      setClientes(data || [])
-    } finally {
-      setCarregando(false)
+  const salvarCliente = async () => {
+    if (!form.nome || !estabelecimentoId) return
+    if (editando) {
+      await supabase.from('clientes').update({ ...form }).eq('id', editando.id)
+    } else {
+      await supabase.from('clientes').insert({ ...form, estabelecimento_id: estabelecimentoId })
     }
+    setForm({ nome: '', telefone: '', email: '', endereco: '', cidade: '', data_nascimento: '' })
+    setModalCadastro(false)
+    setEditando(null)
+    fetchClientes()
   }
 
-  async function salvarCliente() {
-    if (!clienteEditando.nome || !estabelecimentoId) return
-    setSalvando(true)
-    try {
-      if (clienteEditando.id) {
-        await supabase.from('clientes').update({ ...clienteEditando }).eq('id', clienteEditando.id)
-      } else {
-        await supabase.from('clientes').insert([{ ...clienteEditando, estabelecimento_id: estabelecimentoId }])
-      }
-      setModalAberto(false)
-      setClienteEditando({})
-      await carregarClientes()
-    } finally {
-      setSalvando(false)
-    }
+  const excluirCliente = async (id: string) => {
+    await supabase.from('clientes').delete().eq('id', id)
+    setClientes(prev => prev.filter(c => c.id !== id))
+    if (clienteSelecionado?.id === id) setClienteSelecionado(null)
   }
 
-  const clientesFiltrados = clientes.filter(c => {
-    if (!busca) return true
-    const b = busca.toLowerCase()
-    return (
-      (c.nome || '').toLowerCase().includes(b) ||
-      (c.telefone || '').includes(b) ||
-      (c.email || '').toLowerCase().includes(b)
-    )
-  })
-
-  const inicio = (pagina - 1) * porPagina
-  const paginados = clientesFiltrados.slice(inicio, inicio + porPagina)
-  const totalPaginas = Math.ceil(clientesFiltrados.length / porPagina)
-
-  const formatarData = (d: string) => {
-    if (!d) return '-'
-    return new Date(d).toLocaleDateString('pt-BR')
+  const abrirEdicao = (c: Cliente) => {
+    setEditando(c)
+    setForm({ nome: c.nome || '', telefone: c.telefone || '', email: c.email || '', endereco: c.endereco || '', cidade: c.cidade || '', data_nascimento: c.data_nascimento || '' })
+    setModalCadastro(true)
   }
 
-  const formatMoeda = (v: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
+  const toggleOrdem = (col: typeof ordenacao) => {
+    if (ordenacao === col) setOrdemAsc(a => !a)
+    else { setOrdenacao(col); setOrdemAsc(true) }
+  }
+
+  const totalPaginas = Math.ceil(total / POR_PAGINA)
+  const s = { fontFamily: 'Mulish, sans-serif' }
 
   return (
-    <div style={{ backgroundColor: '#111111', minHeight: '100vh', color: '#ffffff', fontFamily: 'Inter, sans-serif' }}>
-      {/* Barra de ações */}
-      <div style={{ backgroundColor: '#1a1a1a', borderBottom: '1px solid #2a2a2a', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-        <button
-          onClick={() => { setClienteEditando({}); setModalAberto(true) }}
-          style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: '#eb0029', color: '#fff', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
-        >
-          + Adicionar
-        </button>
+    <div style={{ ...s, padding: 24, color: '#e6e6e6', minHeight: '100vh' }}>
+      <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-        <div style={{ position: 'relative', minWidth: '200px', maxWidth: '280px' }}>
-          <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#6b7280', fontSize: '13px' }}>🔍</span>
-          <input
-            type="text"
-            placeholder="Buscar..."
-            value={busca}
-            onChange={e => { setBusca(e.target.value); setPagina(1) }}
-            style={{ width: '100%', backgroundColor: '#111111', border: '1px solid #2a2a2a', borderRadius: '6px', padding: '8px 12px 8px 30px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' as any }}
-          />
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: '#fff' }}>Clientes</h1>
+          <p style={{ margin: '4px 0 0', fontSize: 14, color: '#888' }}>{total} cliente(s) cadastrado(s)</p>
         </div>
-
-        <button onClick={carregarClientes} style={{ backgroundColor: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '6px', padding: '8px 12px', color: '#9ca3af', cursor: 'pointer', fontSize: '14px' }}>↻</button>
-        <button style={{ backgroundColor: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '6px', padding: '8px 12px', color: '#9ca3af', cursor: 'pointer', fontSize: '14px' }}>▼</button>
-
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
-          <button style={{ padding: '8px 14px', borderRadius: '6px', border: '1px solid #2a2a2a', backgroundColor: '#1a1a1a', color: '#9ca3af', cursor: 'pointer', fontSize: '13px' }}>📊 RFV</button>
-          <button style={{ padding: '8px 14px', borderRadius: '6px', border: '1px solid #2a2a2a', backgroundColor: '#1a1a1a', color: '#9ca3af', cursor: 'pointer', fontSize: '13px' }}>📄 Excel ▾</button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={fetchClientes} style={{ padding: '9px 14px', borderRadius: 8, border: '1px solid #292929', background: '#1a1a1a', color: '#888', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'Mulish, sans-serif' }}>
+            <RefreshCw size={14} />
+          </button>
+          <button onClick={() => { setEditando(null); setForm({ nome: '', telefone: '', email: '', endereco: '', cidade: '', data_nascimento: '' }); setModalCadastro(true) }} style={{
+            padding: '9px 18px', borderRadius: 8, border: 'none', background: '#ef4239', color: '#fff',
+            fontWeight: 700, cursor: 'pointer', fontFamily: 'Mulish, sans-serif', display: 'flex', alignItems: 'center', gap: 6
+          }}><Plus size={16} /> Adicionar</button>
         </div>
       </div>
 
+      {/* KPIs */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+        {[
+          { label: 'Total Clientes', valor: total, icon: <Users size={20} />, cor: '#3b82f6' },
+          { label: 'Total Gasto', valor: 'R$ ' + totalGasto.toFixed(2).replace('.', ','), icon: <TrendingUp size={20} />, cor: '#22c55e' },
+          { label: 'Ticket Médio', valor: 'R$ ' + ticketMedio.toFixed(2).replace('.', ','), icon: <ShoppingBag size={20} />, cor: '#f59e0b' },
+          { label: 'Recorrentes', valor: recorrentes, icon: <Star size={20} />, cor: '#ef4239' },
+        ].map((kpi, i) => (
+          <div key={i} style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: 10, padding: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <p style={{ margin: '0 0 6px', fontSize: 13, color: '#888' }}>{kpi.label}</p>
+              <p style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#fff' }}>{kpi.valor}</p>
+            </div>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: kpi.cor + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', color: kpi.cor }}>{kpi.icon}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Busca */}
+      <div style={{ position: 'relative', marginBottom: 16 }}>
+        <Search size={14} color="#555" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+        <input value={busca} onChange={e => { setBusca(e.target.value); setPagina(1) }} placeholder="Buscar por nome, telefone ou e-mail..."
+          style={{ width: '100%', padding: '10px 12px 10px 36px', borderRadius: 8, border: '1px solid #292929', background: '#1a1a1a', color: '#e6e6e6', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'Mulish, sans-serif' }}
+        />
+        {busca && <button onClick={() => setBusca('')} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#555', cursor: 'pointer' }}><X size={14} /></button>}
+      </div>
+
       {/* Tabela */}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+      <div style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: 10, overflow: 'hidden', marginBottom: 16 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ backgroundColor: '#1a1a1a', borderBottom: '1px solid #2a2a2a' }}>
+            <tr style={{ borderBottom: '1px solid #292929' }}>
               {[
-                { label: 'Nome', sortable: true },
-                { label: 'Telefone', sortable: true },
-                { label: 'Email', sortable: true },
-                { label: 'Saldo Cashback', sortable: true },
-                { label: 'Pedidos', sortable: true },
-                { label: 'Total Venda', sortable: true },
-                { label: 'Ticket Médio', sortable: true },
-                { label: 'Cliente há', sortable: true },
-                { label: 'Primeira Venda', sortable: true },
-                { label: 'Última Venda', sortable: true },
-                { label: 'Origem', sortable: true }
+                { key: 'nome', label: 'Nome' },
+                { key: null, label: 'Telefone' },
+                { key: null, label: 'Email' },
+                { key: 'total_pedidos', label: 'Pedidos' },
+                { key: 'total_gasto', label: 'Total Gasto' },
+                { key: null, label: 'Cashback' },
+                { key: 'criado_em', label: 'Cliente há' },
+                { key: null, label: 'Ações' },
               ].map(col => (
-                <th key={col.label} style={{ padding: '11px 14px', textAlign: 'left', color: '#9ca3af', fontWeight: '500', whiteSpace: 'nowrap', borderRight: '1px solid #2a2a2a', cursor: col.sortable ? 'pointer' : 'default' }}>
-                  {col.label} {col.sortable && <span style={{ opacity: 0.4 }}>↕</span>}
+                <th key={col.label} onClick={col.key ? () => toggleOrdem(col.key as any) : undefined}
+                  style={{ padding: '12px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#666', textTransform: 'uppercase', letterSpacing: 0.5, cursor: col.key ? 'pointer' : 'default', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    {col.label}
+                    {col.key === ordenacao && (ordemAsc ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
+                  </span>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {carregando ? (
-              <tr><td colSpan={11} style={{ textAlign: 'center', padding: '60px', color: '#6b7280' }}>Carregando clientes...</td></tr>
-            ) : paginados.length === 0 ? (
-              <tr><td colSpan={11} style={{ textAlign: 'center', padding: '60px', color: '#6b7280' }}>Nenhum cliente encontrado</td></tr>
-            ) : paginados.map((cliente, i) => (
-              <tr
-                key={cliente.id}
-                style={{ backgroundColor: i % 2 === 0 ? '#111111' : '#131313', borderBottom: '1px solid #1e1e1e', cursor: 'pointer' }}
-                onClick={() => { setClienteEditando(cliente); setModalAberto(true) }}
-              >
-                <td style={{ padding: '10px 14px', borderRight: '1px solid #1e1e1e', fontWeight: '500', color: '#fff' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#eb002933', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '12px', color: '#eb0029', fontWeight: '700' }}>
-                      {(cliente.nome || 'C').charAt(0).toUpperCase()}
+              <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: '#555' }}>
+                <RefreshCw size={20} style={{ animation: 'spin 1s linear infinite' }} />
+                <style>{`@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
+              </td></tr>
+            ) : clientes.length === 0 ? (
+              <tr><td colSpan={8} style={{ padding: 60, textAlign: 'center', color: '#555' }}>
+                <Users size={40} color="#333" style={{ display: 'block', margin: '0 auto 12px' }} />
+                {busca ? 'Nenhum cliente encontrado para "' + busca + '"' : 'Nenhum cliente cadastrado ainda'}
+              </td></tr>
+            ) : clientes.map((c, i) => (
+              <tr key={c.id} style={{ borderBottom: i < clientes.length - 1 ? '1px solid #1e1e1e' : 'none', cursor: 'pointer' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#1f1f1f')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                onClick={() => setClienteSelecionado(clienteSelecionado?.id === c.id ? null : c)}>
+                <td style={{ padding: '12px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#ef423922', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4239', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
+                      {c.nome.charAt(0).toUpperCase()}
                     </div>
-                    {cliente.nome || '-'}
+                    <span style={{ fontWeight: 600, color: '#e6e6e6', fontSize: 14 }}>{c.nome}</span>
                   </div>
                 </td>
-                <td style={{ padding: '10px 14px', borderRight: '1px solid #1e1e1e', color: '#9ca3af' }}>{cliente.telefone || '-'}</td>
-                <td style={{ padding: '10px 14px', borderRight: '1px solid #1e1e1e', color: '#9ca3af' }}>{cliente.email || '-'}</td>
-                <td style={{ padding: '10px 14px', borderRight: '1px solid #1e1e1e', color: '#10b981' }}>R$ 0,00</td>
-                <td style={{ padding: '10px 14px', borderRight: '1px solid #1e1e1e', color: '#fff', fontWeight: '600' }}>{cliente.total_pedidos || 0}</td>
-                <td style={{ padding: '10px 14px', borderRight: '1px solid #1e1e1e', color: '#fff', fontWeight: '600' }}>{formatMoeda(cliente.total_gasto || 0)}</td>
-                <td style={{ padding: '10px 14px', borderRight: '1px solid #1e1e1e', color: '#9ca3af' }}>
-                  {cliente.total_pedidos ? formatMoeda((cliente.total_gasto || 0) / cliente.total_pedidos) : '-'}
+                <td style={{ padding: '12px 14px', fontSize: 13, color: '#888' }}>{c.telefone || '—'}</td>
+                <td style={{ padding: '12px 14px', fontSize: 13, color: '#888' }}>{c.email || '—'}</td>
+                <td style={{ padding: '12px 14px', fontSize: 14, fontWeight: 600, color: '#e6e6e6', textAlign: 'center' }}>{c.total_pedidos || 0}</td>
+                <td style={{ padding: '12px 14px', fontSize: 13, fontWeight: 600, color: '#22c55e' }}>R$ {(c.total_gasto || 0).toFixed(2).replace('.', ',')}</td>
+                <td style={{ padding: '12px 14px', fontSize: 13, color: '#f59e0b', fontWeight: 600 }}>R$ {(c.cashback || 0).toFixed(2).replace('.', ',')}</td>
+                <td style={{ padding: '12px 14px', fontSize: 12, color: '#666' }}>
+                  {Math.floor((Date.now() - new Date(c.criado_em).getTime()) / (1000 * 60 * 60 * 24))} dias
                 </td>
-                <td style={{ padding: '10px 14px', borderRight: '1px solid #1e1e1e', color: '#9ca3af' }}>
-                  {cliente.created_at ? (() => {
-                    const dias = Math.floor((Date.now() - new Date(cliente.created_at).getTime()) / 86400000)
-                    return dias < 30 ? dias + 'd' : Math.floor(dias/30) + 'm'
-                  })() : '-'}
+                <td style={{ padding: '12px 14px' }}>
+                  <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+                    <button onClick={() => abrirEdicao(c)} style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid #292929', background: 'none', color: '#888', cursor: 'pointer' }}><Edit3 size={13} /></button>
+                    <button onClick={() => excluirCliente(c.id)} style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid #292929', background: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={13} /></button>
+                  </div>
                 </td>
-                <td style={{ padding: '10px 14px', borderRight: '1px solid #1e1e1e', color: '#9ca3af' }}>{formatarData(cliente.created_at)}</td>
-                <td style={{ padding: '10px 14px', borderRight: '1px solid #1e1e1e', color: '#9ca3af' }}>-</td>
-                <td style={{ padding: '10px 14px', color: '#6b7280', fontSize: '12px' }}>Manual</td>
               </tr>
             ))}
           </tbody>
@@ -190,63 +219,46 @@ function ClientesContent() {
       </div>
 
       {/* Paginação */}
-      <div style={{ backgroundColor: '#1a1a1a', borderTop: '1px solid #2a2a2a', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px', color: '#6b7280' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span>Por página:</span>
-          <select style={{ backgroundColor: '#111111', border: '1px solid #2a2a2a', borderRadius: '4px', padding: '4px 8px', color: '#fff', fontSize: '13px' }}>
-            <option>25</option><option>50</option><option>100</option>
-          </select>
+      {totalPaginas > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, color: '#888' }}>
+          <span>Mostrando {(pagina - 1) * POR_PAGINA + 1}–{Math.min(pagina * POR_PAGINA, total)} de {total}</span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button onClick={() => setPagina(p => Math.max(1, p - 1))} disabled={pagina === 1} style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #292929', background: pagina === 1 ? '#111' : '#1a1a1a', color: pagina === 1 ? '#444' : '#888', cursor: pagina === 1 ? 'not-allowed' : 'pointer', fontFamily: 'Mulish, sans-serif' }}>← Anterior</button>
+            <button onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))} disabled={pagina === totalPaginas} style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #292929', background: pagina === totalPaginas ? '#111' : '#1a1a1a', color: pagina === totalPaginas ? '#444' : '#888', cursor: pagina === totalPaginas ? 'not-allowed' : 'pointer', fontFamily: 'Mulish, sans-serif' }}>Próximo →</button>
+          </div>
         </div>
-        <span>Mostrando {inicio + 1}-{Math.min(inicio + porPagina, clientesFiltrados.length)} de {clientesFiltrados.length}</span>
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <button
-            onClick={() => setPagina(p => Math.max(1, p - 1))}
-            disabled={pagina === 1}
-            style={{ padding: '4px 12px', backgroundColor: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '4px', color: pagina === 1 ? '#4b5563' : '#9ca3af', cursor: pagina === 1 ? 'not-allowed' : 'pointer' }}
-          >
-            ← Anterior
-          </button>
-          <button
-            onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
-            disabled={pagina >= totalPaginas}
-            style={{ padding: '4px 12px', backgroundColor: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '4px', color: pagina >= totalPaginas ? '#4b5563' : '#9ca3af', cursor: pagina >= totalPaginas ? 'not-allowed' : 'pointer' }}
-          >
-            Próximo →
-          </button>
-        </div>
-      </div>
+      )}
 
-      {/* Modal Adicionar/Editar Cliente */}
-      {modalAberto && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '12px', padding: '24px', width: '440px', maxWidth: '95vw' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700' }}>{clienteEditando.id ? 'Editar Cliente' : 'Novo Cliente'}</h3>
-              <button onClick={() => setModalAberto(false)} style={{ backgroundColor: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '20px' }}>×</button>
+      {/* MODAL CADASTRO */}
+      {modalCadastro && (
+        <div style={{ position: 'fixed', inset: 0, background: '#000a', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Mulish, sans-serif' }}>
+          <div style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: 12, padding: 28, width: 480, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#fff' }}>{editando ? 'Editar Cliente' : 'Novo Cliente'}</h2>
+              <button onClick={() => { setModalCadastro(false); setEditando(null) }} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 20 }}>×</button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               {[
-                { label: 'Nome *', field: 'nome', type: 'text', placeholder: 'Nome completo' },
-                { label: 'Telefone', field: 'telefone', type: 'tel', placeholder: '(11) 99999-9999' },
-                { label: 'Email', field: 'email', type: 'email', placeholder: 'email@exemplo.com' },
-                { label: 'Endereço', field: 'endereco', type: 'text', placeholder: 'Rua, número, bairro' }
-              ].map(({ label, field, type, placeholder }) => (
-                <div key={field}>
-                  <label style={{ fontSize: '12px', color: '#9ca3af', display: 'block', marginBottom: '6px' }}>{label}</label>
-                  <input
-                    type={type}
-                    value={(clienteEditando as any)[field] || ''}
-                    onChange={e => setClienteEditando(prev => ({ ...prev, [field]: e.target.value }))}
-                    placeholder={placeholder}
-                    style={{ width: '100%', backgroundColor: '#111111', border: '1px solid #2a2a2a', borderRadius: '6px', padding: '8px 12px', color: '#fff', fontSize: '14px', outline: 'none', boxSizing: 'border-box' as any }}
+                { key: 'nome', label: 'Nome *', placeholder: 'Nome completo', full: true },
+                { key: 'telefone', label: 'Telefone', placeholder: '(11) 99999-9999' },
+                { key: 'email', label: 'E-mail', placeholder: 'email@exemplo.com' },
+                { key: 'cidade', label: 'Cidade', placeholder: 'São Paulo' },
+                { key: 'data_nascimento', label: 'Nascimento', placeholder: '', type: 'date' },
+                { key: 'endereco', label: 'Endereço', placeholder: 'Rua, número, bairro', full: true },
+              ].map(f => (
+                <div key={f.key} style={{ gridColumn: f.full ? '1/-1' : 'auto' }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#aaa', marginBottom: 6 }}>{f.label}</label>
+                  <input value={(form as any)[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                    placeholder={f.placeholder} type={f.type || 'text'}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #333', background: '#111', color: '#e6e6e6', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'Mulish, sans-serif' }}
                   />
                 </div>
               ))}
             </div>
-            <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setModalAberto(false)} style={{ padding: '9px 18px', borderRadius: '6px', border: '1px solid #2a2a2a', backgroundColor: 'transparent', color: '#9ca3af', cursor: 'pointer', fontSize: '14px' }}>Cancelar</button>
-              <button onClick={salvarCliente} disabled={salvando} style={{ padding: '9px 18px', borderRadius: '6px', border: 'none', backgroundColor: '#eb0029', color: '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}>
-                {salvando ? 'Salvando...' : 'Salvar'}
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+              <button onClick={() => { setModalCadastro(false); setEditando(null) }} style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: '1px solid #333', background: 'none', color: '#aaa', cursor: 'pointer', fontFamily: 'Mulish, sans-serif' }}>Cancelar</button>
+              <button onClick={salvarCliente} disabled={!form.nome} style={{ flex: 2, padding: '10px 0', borderRadius: 8, border: 'none', background: form.nome ? '#ef4239' : '#555', color: '#fff', fontWeight: 700, cursor: form.nome ? 'pointer' : 'not-allowed', fontFamily: 'Mulish, sans-serif' }}>
+                {editando ? 'Salvar Alterações' : 'Cadastrar Cliente'}
               </button>
             </div>
           </div>
@@ -258,7 +270,7 @@ function ClientesContent() {
 
 export default function ClientesPage() {
   return (
-    <Suspense fallback={<div style={{ backgroundColor: '#111111', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>Carregando...</div>}>
+    <Suspense fallback={<div style={{ padding: 24, color: '#888', fontFamily: 'Mulish, sans-serif' }}>Carregando...</div>}>
       <ClientesContent />
     </Suspense>
   )
