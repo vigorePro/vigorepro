@@ -92,6 +92,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Estabelecimento nao encontrado' }, { status: 404 })
     }
 
+    // Comando de reset de conversa
+    if (mensagem.trim() === '/reset') {
+      await supabase
+        .from('conversas_ia')
+        .delete()
+        .eq('telefone', sessionId)
+        .eq('estabelecimento_id', estabelecimento.id)
+      return NextResponse.json({ resposta: 'Conversa reiniciada! Pode mandar oi pra comecar de novo :)', pedidoCriado: false })
+    }
+
     // Busca cardapio e historico em paralelo
     const [cardapio, historico, clienteExistente] = await Promise.all([
       buscarCardapio(estabelecimento.id),
@@ -203,9 +213,9 @@ PROMOCAO ATIVA - MEL PAGA A CONTA:
 Ha uma PROMOCAO ESPECIAL vigente: pedidos acima de R$ 20,00, QUEM PAGA A CONTA E A MEL! :)
 INSTRUCOES:
 - Assim que o valor total do pedido ultrapassar R$ 20,00, anuncie a promocao com entusiasmo:
-  Ex: "Boa noticia! Voce ativou nossa promocao especial: pedidos acima de R$ 20,00 quem paga a conta e a MEL! ð Pode escolher a vontade :)"
+  Ex: "Boa noticia! Voce ativou nossa promocao especial: pedidos acima de R$ 20,00 quem paga a conta e a MEL! Ã° Pode escolher a vontade :)"
 - Se o cliente ainda nao chegou em R$ 20,00, mencione sutilmente: "Psst... faltam so R$ [X],XX pra MEL pagar sua conta! Que tal aproveitar e adicionar mais alguma coisa? :)"
-- Se o cliente perguntar sobre a promocao, confirme com animacao: "Sim! Todo pedido acima de R$ 20,00 quem paga sou eu, a MEL! ð"
+- Se o cliente perguntar sobre a promocao, confirme com animacao: "Sim! Todo pedido acima de R$ 20,00 quem paga sou eu, a MEL! Ã°"
 
 REGRAS TECNICAS:
 - Nao invente produtos que nao estao no cardapio
@@ -217,12 +227,12 @@ REGRAS TECNICAS:
 IDENTIFICACAO DO CLIENTE:
 ${clienteExistente ? 
   `- O cliente JA ESTA CADASTRADO na base de dados. Nome: ${clienteExistente.nome}. Saudacao inicial OBRIGATORIA: use o nome dele, ex: "Ola, ${clienteExistente.nome}! Tudo bem?". Total de pedidos anteriores: ${clienteExistente.total_pedidos || 0}.${clienteExistente.endereco_preferido ? ` ENDERECO SALVO: ${clienteExistente.endereco_preferido}. OBRIGATORIO: ao coletar endereco de entrega, pergunte primeiro: "Seu endereco ainda e ${clienteExistente.endereco_preferido}? :)" Se confirmar use esse. Se nao, peca o novo.` : ''}` 
-  : `- O cliente NAO ESTA CADASTRADO. Na primeira interacao, apresente-se e PECA O NOME educadamente, explicando que e para manter controle e enviar promocoes exclusivas da loja. Ex: "Ola! Sou a MEL ð Para te atender melhor e enviar nossas promocoes, pode me dizer seu nome?"`
+  : `- O cliente NAO ESTA CADASTRADO. Na primeira interacao, apresente-se e PECA O NOME educadamente, explicando que e para manter controle e enviar promocoes exclusivas da loja. Ex: "Ola! Sou a MEL Ã°ÂÂÂ Para te atender melhor e enviar nossas promocoes, pode me dizer seu nome?"`
 }
 
 CARDAPIO DIGITAL:
 - Quando o cliente perguntar sobre produtos, opcoes, precos ou o que voce tem disponivel, SEMPRE envie o link do cardapio digital: https://dolcedolce.vigorepro.com.br/cardapio/dolcedolce
-- Diga algo como: "Aqui esta nosso cardapio completo com todos os produtos e precos: https://dolcedolce.vigorepro.com.br/cardapio/dolcedolce ð"
+- Diga algo como: "Aqui esta nosso cardapio completo com todos os produtos e precos: https://dolcedolce.vigorepro.com.br/cardapio/dolcedolce Ã°ÂÂÂ"
 - Voce pode complementar com informacoes especificas do produto que ele perguntou, mas sempre envie o link`
 
     const messages = [
