@@ -1,403 +1,423 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
-import { createClient } from '@supabase/supabase-js'
-import { ChefHat, Clock, AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react'
+import { Suspense, useEffect, useState, useCallback, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+import { ChefHat, Clock, AlertTriangle, CheckCircle2, RefreshCw, Search, Bell, BellOff, Grid, List, ChevronRight, ChevronLeft, Utensils, LogOut, Settings, Sun, Moon } from 'lucide-react'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+type ItemPedido = {
+  id: string
+  nome: string
+  quantidade: number
+  observacao?: string
+  setor?: string
+}
 
-type KDSOrder = {
+type Pedido = {
   id: string
   numero: number
-  status: 'pendente' | 'em_preparo' | 'pronto'
-  itens: { nome: string; quantidade: number; obs?: string }[]
-  criado_em: string
-  tipo: 'delivery' | 'mesa' | 'balcao'
+  status: 'pendente' | 'em_preparo' | 'pronto' | 'entregue'
+  tipo: string
   mesa?: string
+  cliente?: string
+  criado_em: string
+  tempo_espera?: number
+  itens: ItemPedido[]
+  estabelecimento_id: string
 }
 
-function getElapsed(createdAt: string): number {
-  return Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000)
-}
+function KDSContent() {
+  const searchParams = useSearchParams()
+  const slug = searchParams.get('slug') || ''
+  const [estabelecimentoId, setEstabelecimentoId] = useState('')
+  const [pedidos, setPedidos] = useState<Pedido[]>([])
+  const [busca, setBusca] = useState('')
+  const [modoGrade, setModoGrade] = useState(true)
+  const [somAtivo, setSomAtivo] = useState(true)
+  const [resumoAberto, setResumoAberto] = useState(true)
+  const [tema, setTema] = useState<'dark' | 'light'>('dark')
+  const [carregando, setCarregando] = useState(true)
+  const [ultimaAtt, setUltimaAtt] = useState(new Date())
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const qtdAnterior = useRef(0)
 
-function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60)
-  const s = seconds % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
-
-function TimerBadge({ createdAt, status }: { createdAt: string; status: string }) {
-  const [elapsed, setElapsed] = useState(getElapsed(createdAt))
-
-  useEffect(() => {
-    if (status === 'pronto') return
-    const interval = setInterval(() => {
-      setElapsed(getElapsed(createdAt))
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [createdAt, status])
-
-  const isAlert = elapsed > 600 // 10 minutos
-  const isWarning = elapsed > 300 // 5 minutos
-
-  return (
-    <span style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: '4px',
-      fontSize: '12px',
-      fontWeight: 600,
-      padding: '2px 8px',
-      borderRadius: '999px',
-      backgroundColor: isAlert ? '#3d1515' : isWarning ? '#2d2000' : '#1a1a1a',
-      color: isAlert ? '#ef4239' : isWarning ? '#f59e0b' : '#888',
-    }}>
-      {isAlert ? <AlertTriangle size={12} /> : <Clock size={12} />}
-      {formatTime(elapsed)}
-    </span>
-  )
-}
-
-function OrderCard({ order, onUpdateStatus }: { order: KDSOrder; onUpdateStatus: (id: string, status: KDSOrder['status']) => void }) {
-  const typeColors: Record<string, string> = {
-    delivery: '#3b82f6',
-    mesa: '#8b5cf6',
-    balcao: '#f59e0b'
-  }
-
-  const typeLabels: Record<string, string> = {
-    delivery: 'Delivery',
-    mesa: `Mesa ${order.mesa || ''}`,
-    balcao: 'Balcão'
-  }
-
-  return (
-    <div style={{
-      backgroundColor: '#1a1a1a',
-      border: '1px solid #292929',
-      borderRadius: '12px',
-      padding: '16px',
-      marginBottom: '12px',
-      borderTop: `3px solid ${typeColors[order.tipo] || '#444'}`
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ color: '#fff', fontWeight: 700, fontSize: '18px' }}>#{order.numero}</span>
-            <span style={{
-              fontSize: '11px',
-              fontWeight: 600,
-              padding: '2px 8px',
-              borderRadius: '999px',
-              backgroundColor: `${typeColors[order.tipo]}22`,
-              color: typeColors[order.tipo],
-              border: `1px solid ${typeColors[order.tipo]}44`
-            }}>
-              {typeLabels[order.tipo]}
-            </span>
-          </div>
-        </div>
-        {order.status !== 'pronto' && <TimerBadge createdAt={order.criado_em} status={order.status} />}
-        {order.status === 'pronto' && (
-          <span style={{ color: '#22c55e', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <CheckCircle2 size={14} /> Pronto
-          </span>
-        )}
-      </div>
-
-      <div style={{ borderTop: '1px solid #292929', paddingTop: '12px', marginBottom: '12px' }}>
-        {order.itens.map((item, i) => (
-          <div key={i} style={{ marginBottom: '8px' }}>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'baseline' }}>
-              <span style={{
-                backgroundColor: '#ef423920',
-                color: '#ef4239',
-                fontWeight: 700,
-                fontSize: '13px',
-                padding: '0 6px',
-                borderRadius: '4px',
-                flexShrink: 0
-              }}>
-                {item.quantidade}x
-              </span>
-              <span style={{ color: '#e6e6e6', fontSize: '14px', fontWeight: 500 }}>{item.nome}</span>
-            </div>
-            {item.obs && (
-              <div style={{ color: '#f59e0b', fontSize: '12px', marginLeft: '32px', marginTop: '2px' }}>
-                ⚠ {item.obs}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div style={{ display: 'flex', gap: '8px' }}>
-        {order.status === 'pendente' && (
-          <button
-            onClick={() => onUpdateStatus(order.id, 'em_preparo')}
-            style={{
-              flex: 1,
-              padding: '8px',
-              borderRadius: '8px',
-              border: 'none',
-              backgroundColor: '#ef4239',
-              color: '#fff',
-              fontWeight: 600,
-              fontSize: '13px',
-              cursor: 'pointer',
-              fontFamily: 'Mulish, sans-serif'
-            }}
-          >
-            Iniciar Preparo
-          </button>
-        )}
-        {order.status === 'em_preparo' && (
-          <button
-            onClick={() => onUpdateStatus(order.id, 'pronto')}
-            style={{
-              flex: 1,
-              padding: '8px',
-              borderRadius: '8px',
-              border: 'none',
-              backgroundColor: '#22c55e',
-              color: '#fff',
-              fontWeight: 600,
-              fontSize: '13px',
-              cursor: 'pointer',
-              fontFamily: 'Mulish, sans-serif'
-            }}
-          >
-            Marcar como Pronto
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-export default function CozinhaPage() {
-  const [orders, setOrders] = useState<KDSOrder[]>([])
-  const [loading, setLoading] = useState(true)
-  const [lastUpdate, setLastUpdate] = useState(new Date())
-
-  const loadOrders = useCallback(async () => {
-    // Dados de demonstração para o KDS
-    const mockOrders: KDSOrder[] = [
-      {
-        id: '1',
-        numero: 1042,
-        status: 'pendente',
-        tipo: 'delivery',
-        criado_em: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
-        itens: [
-          { nome: 'X-Burguer Especial', quantidade: 2 },
-          { nome: 'Fritas Grande', quantidade: 2, obs: 'Sem sal' },
-          { nome: 'Coca-Cola 600ml', quantidade: 1 }
-        ]
-      },
-      {
-        id: '2',
-        numero: 1041,
-        status: 'em_preparo',
-        tipo: 'mesa',
-        mesa: '5',
-        criado_em: new Date(Date.now() - 7 * 60 * 1000).toISOString(),
-        itens: [
-          { nome: 'Pizza Margherita', quantidade: 1, obs: 'Borda recheada' },
-          { nome: 'Suco de Laranja', quantidade: 2 }
-        ]
-      },
-      {
-        id: '3',
-        numero: 1040,
-        status: 'pronto',
-        tipo: 'balcao',
-        criado_em: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
-        itens: [
-          { nome: 'Coxinha', quantidade: 4 },
-          { nome: 'Café Expresso', quantidade: 1 }
-        ]
+  const tocarSom = useCallback(() => {
+    if (!somAtivo) return
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
       }
-    ]
-    setOrders(mockOrders)
-    setLoading(false)
-    setLastUpdate(new Date())
-  }, [])
+      const ctx = audioCtxRef.current
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.frequency.setValueAtTime(880, ctx.currentTime)
+      osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1)
+      gain.gain.setValueAtTime(0.3, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5)
+      osc.start(ctx.currentTime)
+      osc.stop(ctx.currentTime + 0.5)
+    } catch {}
+  }, [somAtivo])
 
+  const fetchEstabelecimento = useCallback(async () => {
+    if (!slug) return
+    const { data } = await supabase.from('estabelecimentos').select('id').eq('slug', slug).single()
+    if (data) setEstabelecimentoId(data.id)
+  }, [slug])
+
+  const fetchPedidos = useCallback(async () => {
+    if (!estabelecimentoId) return
+    const { data } = await supabase
+      .from('pedidos')
+      .select('id, numero, status, tipo, mesa, cliente, criado_em, itens, estabelecimento_id')
+      .eq('estabelecimento_id', estabelecimentoId)
+      .in('status', ['pendente', 'em_preparo'])
+      .order('criado_em', { ascending: true })
+
+    if (data) {
+      const agora = new Date()
+      const pedidosComTempo = data.map((p: any) => ({
+        ...p,
+        itens: Array.isArray(p.itens) ? p.itens : [],
+        tempo_espera: Math.floor((agora.getTime() - new Date(p.criado_em).getTime()) / 60000)
+      }))
+      if (pedidosComTempo.length > qtdAnterior.current) tocarSom()
+      qtdAnterior.current = pedidosComTempo.length
+      setPedidos(pedidosComTempo)
+      setUltimaAtt(new Date())
+    }
+    setCarregando(false)
+  }, [estabelecimentoId, tocarSom])
+
+  useEffect(() => { fetchEstabelecimento() }, [fetchEstabelecimento])
   useEffect(() => {
-    loadOrders()
-    const interval = setInterval(loadOrders, 30000)
+    if (!estabelecimentoId) return
+    fetchPedidos()
+    const interval = setInterval(fetchPedidos, 15000)
     return () => clearInterval(interval)
-  }, [loadOrders])
+  }, [estabelecimentoId, fetchPedidos])
 
-  const updateStatus = async (id: string, newStatus: KDSOrder['status']) => {
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o))
-  }
-
-  const pendente = orders.filter(o => o.status === 'pendente')
-  const em_preparo = orders.filter(o => o.status === 'em_preparo')
-  const pronto = orders.filter(o => o.status === 'pronto')
-
-  const columnStyle = {
-    flex: 1,
-    minWidth: 0,
-    display: 'flex',
-    flexDirection: 'column' as const
-  }
-
-  const columnHeaderStyle = (color: string) => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '12px 16px',
-    borderBottom: `2px solid ${color}`,
-    marginBottom: '16px'
-  })
-
-  if (loading) {
-    return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100vh',
-        backgroundColor: '#111',
-        color: '#888',
-        fontFamily: 'Mulish, sans-serif'
-      }}>
-        <RefreshCw size={24} style={{ marginRight: '12px', animation: 'spin 1s linear infinite' }} />
-        Carregando pedidos...
-      </div>
+  const atualizarStatus = async (id: string, novoStatus: string) => {
+    await supabase.from('pedidos').update({ status: novoStatus }).eq('id', id)
+    setPedidos(prev => novoStatus === 'pronto'
+      ? prev.filter(p => p.id !== id)
+      : prev.map(p => p.id === id ? { ...p, status: novoStatus as any } : p)
     )
   }
 
+  const pedidosFiltrados = pedidos.filter(p =>
+    p.numero?.toString().includes(busca) ||
+    p.mesa?.toLowerCase().includes(busca.toLowerCase()) ||
+    p.cliente?.toLowerCase().includes(busca.toLowerCase())
+  )
+  const pendentes = pedidosFiltrados.filter(p => p.status === 'pendente')
+  const emPreparo = pedidosFiltrados.filter(p => p.status === 'em_preparo')
+
+  const corTempo = (min: number) => min >= 20 ? '#ef4444' : min >= 10 ? '#f59e0b' : '#22c55e'
+
+  const bg = tema === 'dark' ? '#0a0a0a' : '#f5f5f5'
+  const cardBg = tema === 'dark' ? '#1a1a1a' : '#ffffff'
+  const bordaCard = tema === 'dark' ? '#2a2a2a' : '#e0e0e0'
+  const texto = tema === 'dark' ? '#e6e6e6' : '#111111'
+  const textoSec = tema === 'dark' ? '#888' : '#666'
+  const topBar = tema === 'dark' ? '#111' : '#fff'
+  const topBorder = tema === 'dark' ? '#222' : '#e0e0e0'
+  const btnBg = tema === 'dark' ? '#222' : '#f0f0f0'
+  const btnBorder = tema === 'dark' ? '#333' : '#d0d0d0'
+
   return (
-    <div style={{
-      backgroundColor: '#111',
-      minHeight: '100vh',
-      fontFamily: 'Mulish, sans-serif',
-      padding: '24px'
-    }}>
-      {/* Header */}
+    <div style={{ fontFamily: 'Mulish, sans-serif', background: bg, minHeight: '100vh', color: texto }}>
+      <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+      {/* TOP BAR */}
       <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: '24px'
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+        background: topBar, borderBottom: `1px solid ${topBorder}`,
+        height: 56, display: 'flex', alignItems: 'center', gap: 12, padding: '0 16px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <ChefHat size={28} color='#ef4239' />
-          <div>
-            <h1 style={{ color: '#fff', fontSize: '22px', fontWeight: 700, margin: 0 }}>
-              KDS — Cozinha
-            </h1>
-            <p style={{ color: '#888', fontSize: '13px', margin: '2px 0 0' }}>
-              Kitchen Display System
-            </p>
-          </div>
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: 8 }}>
+          <ChefHat size={22} color="#ef4239" />
+          <span style={{ fontWeight: 700, fontSize: 14, color: '#ef4239' }}>KDS</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ color: '#888', fontSize: '12px' }}>
-            Atualizado: {lastUpdate.toLocaleTimeString('pt-BR')}
-          </span>
-          <button
-            onClick={loadOrders}
+
+        {/* Busca */}
+        <div style={{ position: 'relative', flex: 1, maxWidth: 280 }}>
+          <Search size={14} color={textoSec} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
+          <input
+            value={busca} onChange={e => setBusca(e.target.value)}
+            placeholder="Buscar pedido..."
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              borderRadius: '8px',
-              border: '1px solid #292929',
-              backgroundColor: '#1a1a1a',
-              color: '#e6e6e6',
-              fontSize: '13px',
-              cursor: 'pointer',
-              fontFamily: 'Mulish, sans-serif'
+              width: '100%', padding: '6px 10px 6px 32px', borderRadius: 20,
+              border: `1px solid ${btnBorder}`, background: btnBg, color: texto,
+              fontSize: 13, outline: 'none', boxSizing: 'border-box'
             }}
-          >
-            <RefreshCw size={14} />
-            Atualizar
-          </button>
+          />
         </div>
-      </div>
 
-      {/* Stats */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+        {/* Contadores */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px',
+          borderRadius: 20, border: `1px solid ${btnBorder}`, background: btnBg, fontSize: 13, fontWeight: 600
+        }}>
+          Pendentes: <span style={{ color: '#f59e0b' }}>{pendentes.length}</span>
+        </div>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px',
+          borderRadius: 20, border: '1px solid #22c55e', background: '#0f2e1a', fontSize: 13, fontWeight: 600, color: '#22c55e'
+        }}>
+          Em Produção: <span>{emPreparo.length}</span>
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Botões direita */}
         {[
-          { label: 'Aguardando', count: pendente.length, color: '#ef4239' },
-          { label: 'Em Preparo', count: em_preparo.length, color: '#f59e0b' },
-          { label: 'Prontos', count: pronto.length, color: '#22c55e' },
-          { label: 'Total Hoje', count: orders.length, color: '#6b7280' }
-        ].map(stat => (
-          <div key={stat.label} style={{
-            flex: 1,
-            backgroundColor: '#1a1a1a',
-            border: '1px solid #292929',
-            borderRadius: '10px',
-            padding: '14px 16px',
-            borderTop: `2px solid ${stat.color}`
+          { icon: <RefreshCw size={16} />, label: 'Atualizar', action: () => fetchPedidos(), active: false },
+          { icon: modoGrade ? <List size={16} /> : <Grid size={16} />, label: modoGrade ? 'Lista' : 'Grade', action: () => setModoGrade(!modoGrade), active: modoGrade },
+          { icon: somAtivo ? <Bell size={16} /> : <BellOff size={16} />, label: 'Som', action: () => setSomAtivo(!somAtivo), active: somAtivo },
+          { icon: tema === 'dark' ? <Sun size={16} /> : <Moon size={16} />, label: 'Tema', action: () => setTema(tema === 'dark' ? 'light' : 'dark'), active: false },
+        ].map((btn, i) => (
+          <button key={i} onClick={btn.action} title={btn.label} style={{
+            width: 36, height: 36, borderRadius: '50%', border: `1px solid ${btn.active ? '#ef4239' : btnBorder}`,
+            background: btn.active ? '#281615' : btnBg, color: btn.active ? '#ef4239' : texto,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>
-            <div style={{ color: '#888', fontSize: '12px', marginBottom: '4px' }}>{stat.label}</div>
-            <div style={{ color: stat.color, fontSize: '28px', fontWeight: 700 }}>{stat.count}</div>
-          </div>
+            {btn.icon}
+          </button>
         ))}
+
+        {/* Última atualização */}
+        <span style={{ fontSize: 11, color: textoSec }}>
+          {ultimaAtt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+        </span>
       </div>
 
-      {/* Kanban */}
-      <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-        {/* Pendentes */}
-        <div style={columnStyle}>
-          <div style={columnHeaderStyle('#ef4239')}>
-            <AlertTriangle size={16} color='#ef4239' />
-            <span style={{ color: '#ef4239', fontWeight: 700, fontSize: '14px' }}>
-              Aguardando ({pendente.length})
-            </span>
-          </div>
-          {pendente.length === 0 ? (
-            <div style={{ color: '#444', fontSize: '13px', textAlign: 'center', padding: '24px' }}>
-              Nenhum pedido aguardando
+      {/* CONTEÚDO */}
+      <div style={{ display: 'flex', paddingTop: 56, height: '100vh' }}>
+        {/* ÁREA PRINCIPAL */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+          {carregando ? (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400, flexDirection: 'column', gap: 16 }}>
+              <RefreshCw size={32} color="#ef4239" style={{ animation: 'spin 1s linear infinite' }} />
+              <span style={{ color: textoSec }}>Carregando pedidos...</span>
+              <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+            </div>
+          ) : pedidosFiltrados.length === 0 ? (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400, flexDirection: 'column', gap: 16 }}>
+              <Utensils size={48} color={textoSec} />
+              <h2 style={{ margin: 0, fontSize: 20, color: texto }}>Nenhum pedido para preparar</h2>
+              <p style={{ margin: 0, color: textoSec, fontSize: 14 }}>Aguardando novos pedidos chegarem</p>
             </div>
           ) : (
-            pendente.map(o => <OrderCard key={o.id} order={o} onUpdateStatus={updateStatus} />)
+            <div style={{
+              display: modoGrade ? 'grid' : 'flex',
+              gridTemplateColumns: modoGrade ? 'repeat(auto-fill, minmax(280px, 1fr))' : undefined,
+              flexDirection: modoGrade ? undefined : 'column',
+              gap: 12
+            }}>
+              {pedidosFiltrados.map(pedido => {
+                const isPendente = pedido.status === 'pendente'
+                const bordaStatus = isPendente ? '#f59e0b' : '#ef4239'
+                const bgStatus = isPendente ? '#2a1f00' : '#281615'
+                const txtStatus = isPendente ? '#f59e0b' : '#ef4239'
+                const labelStatus = isPendente ? 'PENDENTE' : 'EM PREPARO'
+
+                return (
+                  <div key={pedido.id} style={{
+                    background: cardBg,
+                    border: `1px solid ${bordaCard}`,
+                    borderTop: `3px solid ${bordaStatus}`,
+                    borderRadius: 8,
+                    padding: 14,
+                    display: 'flex', flexDirection: 'column', gap: 10
+                  }}>
+                    {/* Header do card */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontWeight: 700, fontSize: 18, color: texto }}>#{pedido.numero}</span>
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
+                          background: bgStatus, color: txtStatus, letterSpacing: 0.5
+                        }}>{labelStatus}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Clock size={13} color={corTempo(pedido.tempo_espera || 0)} />
+                        <span style={{ fontSize: 13, fontWeight: 600, color: corTempo(pedido.tempo_espera || 0) }}>
+                          {pedido.tempo_espera || 0}min
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Info: tipo + mesa/cliente */}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <span style={{
+                        fontSize: 11, padding: '2px 8px', borderRadius: 6,
+                        background: btnBg, color: textoSec, border: `1px solid ${btnBorder}`
+                      }}>{pedido.tipo || 'Mesa'}</span>
+                      {pedido.mesa && (
+                        <span style={{
+                          fontSize: 11, padding: '2px 8px', borderRadius: 6,
+                          background: btnBg, color: texto, fontWeight: 600, border: `1px solid ${btnBorder}`
+                        }}>Mesa {pedido.mesa}</span>
+                      )}
+                      {pedido.cliente && !pedido.mesa && (
+                        <span style={{ fontSize: 11, color: textoSec }}>{pedido.cliente}</span>
+                      )}
+                    </div>
+
+                    {/* Itens */}
+                    <div style={{ borderTop: `1px solid ${bordaCard}`, paddingTop: 8 }}>
+                      {(pedido.itens || []).map((item, idx) => (
+                        <div key={idx} style={{
+                          display: 'flex', gap: 8, alignItems: 'flex-start',
+                          marginBottom: idx < (pedido.itens?.length || 0) - 1 ? 6 : 0
+                        }}>
+                          <span style={{
+                            minWidth: 22, height: 22, borderRadius: 6,
+                            background: '#ef4239', color: '#fff',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 12, fontWeight: 700, flexShrink: 0
+                          }}>{item.quantidade}</span>
+                          <div>
+                            <span style={{ fontSize: 13, fontWeight: 500, color: texto }}>{item.nome}</span>
+                            {item.observacao && (
+                              <p style={{ margin: '2px 0 0', fontSize: 11, color: '#f59e0b', fontStyle: 'italic' }}>
+                                ⚠ {item.observacao}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {(!pedido.itens || pedido.itens.length === 0) && (
+                        <span style={{ fontSize: 12, color: textoSec }}>Sem itens</span>
+                      )}
+                    </div>
+
+                    {/* Botões de ação */}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                      {isPendente ? (
+                        <button onClick={() => atualizarStatus(pedido.id, 'em_preparo')} style={{
+                          flex: 1, padding: '8px 0', borderRadius: 6, border: 'none',
+                          background: '#ef4239', color: '#fff', fontWeight: 700, fontSize: 13,
+                          cursor: 'pointer', fontFamily: 'Mulish, sans-serif'
+                        }}>Iniciar Preparo</button>
+                      ) : (
+                        <>
+                          <button onClick={() => atualizarStatus(pedido.id, 'pendente')} style={{
+                            flex: 1, padding: '8px 0', borderRadius: 6,
+                            border: `1px solid ${btnBorder}`, background: btnBg,
+                            color: texto, fontWeight: 600, fontSize: 12,
+                            cursor: 'pointer', fontFamily: 'Mulish, sans-serif'
+                          }}>Voltar</button>
+                          <button onClick={() => atualizarStatus(pedido.id, 'pronto')} style={{
+                            flex: 2, padding: '8px 0', borderRadius: 6, border: 'none',
+                            background: '#16a34a', color: '#fff', fontWeight: 700, fontSize: 13,
+                            cursor: 'pointer', fontFamily: 'Mulish, sans-serif',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
+                          }}>
+                            <CheckCircle2 size={15} /> Pronto!
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           )}
         </div>
 
-        {/* Em Preparo */}
-        <div style={columnStyle}>
-          <div style={columnHeaderStyle('#f59e0b')}>
-            <ChefHat size={16} color='#f59e0b' />
-            <span style={{ color: '#f59e0b', fontWeight: 700, fontSize: '14px' }}>
-              Em Preparo ({em_preparo.length})
-            </span>
-          </div>
-          {em_preparo.length === 0 ? (
-            <div style={{ color: '#444', fontSize: '13px', textAlign: 'center', padding: '24px' }}>
-              Nenhum pedido em preparo
+        {/* PAINEL LATERAL - RESUMO */}
+        {resumoAberto && (
+          <div style={{
+            width: 260, background: cardBg, borderLeft: `1px solid ${bordaCard}`,
+            display: 'flex', flexDirection: 'column', overflowY: 'auto'
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '14px 16px', borderBottom: `1px solid ${bordaCard}`
+            }}>
+              <span style={{ fontWeight: 700, fontSize: 14, color: texto }}>Resumo da Produção</span>
+              <button onClick={() => setResumoAberto(false)} style={{
+                background: 'none', border: 'none', cursor: 'pointer', color: textoSec, padding: 2
+              }}>
+                <ChevronRight size={18} />
+              </button>
             </div>
-          ) : (
-            em_preparo.map(o => <OrderCard key={o.id} order={o} onUpdateStatus={updateStatus} />)
-          )}
-        </div>
 
-        {/* Prontos */}
-        <div style={columnStyle}>
-          <div style={columnHeaderStyle('#22c55e')}>
-            <CheckCircle2 size={16} color='#22c55e' />
-            <span style={{ color: '#22c55e', fontWeight: 700, fontSize: '14px' }}>
-              Prontos ({pronto.length})
-            </span>
-          </div>
-          {pronto.length === 0 ? (
-            <div style={{ color: '#444', fontSize: '13px', textAlign: 'center', padding: '24px' }}>
-              Nenhum pedido pronto
+            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* Stats */}
+              {[
+                { label: 'Pendentes', valor: pendentes.length, cor: '#f59e0b' },
+                { label: 'Em preparo', valor: emPreparo.length, cor: '#ef4239' },
+                { label: 'Total na fila', valor: pedidosFiltrados.length, cor: texto },
+              ].map((stat, i) => (
+                <div key={i} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '8px 12px', borderRadius: 8, background: btnBg, border: `1px solid ${btnBorder}`
+                }}>
+                  <span style={{ fontSize: 13, color: textoSec }}>{stat.label}</span>
+                  <span style={{ fontSize: 18, fontWeight: 700, color: stat.cor }}>{stat.valor}</span>
+                </div>
+              ))}
+
+              {/* Tempo médio */}
+              {pedidosFiltrados.length > 0 && (
+                <div style={{ padding: '8px 12px', borderRadius: 8, background: btnBg, border: `1px solid ${btnBorder}` }}>
+                  <span style={{ fontSize: 12, color: textoSec, display: 'block', marginBottom: 4 }}>Tempo médio de espera</span>
+                  <span style={{ fontSize: 20, fontWeight: 700, color: corTempo(Math.round(pedidosFiltrados.reduce((a, p) => a + (p.tempo_espera || 0), 0) / pedidosFiltrados.length)) }}>
+                    {Math.round(pedidosFiltrados.reduce((a, p) => a + (p.tempo_espera || 0), 0) / pedidosFiltrados.length)} min
+                  </span>
+                </div>
+              )}
+
+              {/* Alertas */}
+              {pedidos.filter(p => (p.tempo_espera || 0) >= 15).length > 0 && (
+                <div style={{
+                  padding: '10px 12px', borderRadius: 8,
+                  background: '#2a0f0f', border: '1px solid #7f1d1d',
+                  display: 'flex', gap: 8, alignItems: 'flex-start'
+                }}>
+                  <AlertTriangle size={16} color="#ef4444" style={{ flexShrink: 0, marginTop: 1 }} />
+                  <div>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#ef4444', display: 'block' }}>Atenção</span>
+                    <span style={{ fontSize: 11, color: '#fca5a5' }}>
+                      {pedidos.filter(p => (p.tempo_espera || 0) >= 15).length} pedido(s) há mais de 15 min
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
-          ) : (
-            pronto.map(o => <OrderCard key={o.id} order={o} onUpdateStatus={updateStatus} />)
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Botão reabrir resumo */}
+        {!resumoAberto && (
+          <button onClick={() => setResumoAberto(true)} style={{
+            position: 'fixed', right: 0, top: '50%', transform: 'translateY(-50%)',
+            background: '#ef4239', border: 'none', borderRadius: '8px 0 0 8px',
+            color: '#fff', cursor: 'pointer', padding: '12px 6px',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4
+          }}>
+            <ChevronLeft size={16} />
+            <span style={{ fontSize: 10, fontWeight: 700, writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>RESUMO</span>
+          </button>
+        )}
       </div>
     </div>
+  )
+}
+
+export default function KDSPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ background: '#0a0a0a', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: '#ef4239', fontFamily: 'Mulish, sans-serif', fontSize: 16 }}>Carregando KDS...</div>
+      </div>
+    }>
+      <KDSContent />
+    </Suspense>
   )
 }
