@@ -6,7 +6,8 @@ import {
   House, Wallet, Bike, UtensilsCrossed, ShoppingCart, ChefHat,
   BarChart3, Smartphone, CreditCard, MessageCircle, BarChart2,
   BookOpen, Globe, Users, HandCoins, Lightbulb, Link2,
-  BookOpenText, Headphones, LogOut, Settings, ExternalLink, DollarSign
+  BookOpenText, Headphones, LogOut, Settings, ExternalLink,
+  DollarSign, Megaphone, FileText, Receipt
 } from 'lucide-react'
 
 type NavItem = {
@@ -56,7 +57,10 @@ function SidebarContent() {
     },
     {
       items: [
+        { label: 'Food Marketing', href: '/dashboard/marketing?slug=' + slug, icon: Megaphone },
+        { label: 'Fiado', href: '/dashboard/fiado?slug=' + slug, icon: Receipt },
         { label: 'Financeiro', href: '/dashboard/financeiro?slug=' + slug, icon: DollarSign },
+        { label: 'Fiscal', href: '/dashboard/fiscal?slug=' + slug, icon: FileText },
       ]
     },
     {
