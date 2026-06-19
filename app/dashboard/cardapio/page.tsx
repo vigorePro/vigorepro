@@ -253,7 +253,7 @@ function CardapioContent() {
                           <span style={{ fontWeight: '600', fontSize: '14px', color: '#fff' }}>{cat.nome}</span>
                           <span style={{ fontSize: '12px', color: '#6b7280', padding: '2px 8px', backgroundColor: '#2a2a2a', borderRadius: '10px' }}>{prods.length} produtos</span>
                           <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
-                            <button style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Pencil size={12} /></button>
+                            <button style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Editar</button>
                             <button style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #3a1212', backgroundColor: '#111111', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Trash2 size={12} /></button>
                           </div>
                         </div>
