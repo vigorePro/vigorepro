@@ -1,237 +1,324 @@
 'use client'
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { MessageCircle, Send, Phone, Check, CheckCheck, Clock, Users, Zap, Plus, Bot, Bell } from 'lucide-react'
+import { MessageCircle, Search, Send, RefreshCw, Settings, Zap, Check, CheckCheck, Phone, Circle } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 
-const MENSAGENS_RAPIDAS = [
-  { id: 1, titulo: 'Pedido Confirmado', texto: 'Olá {nome}! Seu pedido #{numero} foi confirmado e está sendo preparado. Tempo estimado: {tempo} minutos. 🍽️' },
-  { id: 2, titulo: 'Saiu para Entrega', texto: 'Seu pedido #{numero} saiu para entrega! 🛵 O entregador chega em aproximadamente {tempo} minutos.' },
-  { id: 3, titulo: 'Pedido Entregue', texto: 'Pedido #{numero} entregue com sucesso! 🎉 Obrigado pela preferência! Avalie nosso serviço.' },
-  { id: 4, titulo: 'Promoção do Dia', texto: '🔥 Oferta especial hoje! {descricao}. Válido até {hora}. Acesse nosso cardápio: {link}' },
+type Conversa = {
+  id: string
+  estabelecimento_id: string
+  cliente_nome: string
+  cliente_telefone: string
+  ultima_mensagem: string
+  ultima_mensagem_at: string
+  nao_lidas: number
+  status: 'aberta' | 'resolvida' | 'aguardando'
+  canal: string
+}
+
+type Mensagem = {
+  id: string
+  conversa_id: string
+  conteudo: string
+  tipo: 'recebida' | 'enviada' | 'sistema'
+  lida: boolean
+  created_at: string
+}
+
+const RESPOSTAS_RAPIDAS = [
+  'Pedido Confirmado',
+  'Saiu para Entrega',
+  'Pedido Entregue',
+  'Promocao do Dia',
+  'Cardapio disponivel em: ',
+  'Tempo estimado: 40 minutos',
 ]
 
-const CONVERSAS = [
-  { id: 1, nome: 'João Silva', tel: '(11) 99999-1111', ultima: 'Quero fazer um pedido', hora: '20:45', naoLidas: 2, status: 'online' },
-  { id: 2, nome: 'Maria Santos', tel: '(11) 99999-2222', ultima: 'Pedido entregue, obrigada!', hora: '20:30', naoLidas: 0, status: 'offline' },
-  { id: 3, nome: 'Pedro Costa', tel: '(11) 99999-3333', ultima: 'Qual o tempo de entrega?', hora: '20:15', naoLidas: 1, status: 'offline' },
-  { id: 4, nome: 'Ana Lima', tel: '(11) 99999-4444', ultima: 'Tem opção vegana?', hora: '19:58', naoLidas: 0, status: 'offline' },
-]
-
-const MSGS_CONVERSA = [
-  { id: 1, texto: 'Olá! Gostaria de fazer um pedido', de: 'cliente', hora: '20:40', lida: true },
-  { id: 2, texto: 'Olá João! Que bom que entrou em contato 😊 O que você vai querer?', de: 'eu', hora: '20:41', lida: true },
-  { id: 3, texto: 'Quero 2 X-Burguer e 2 Coca-Cola 600ml', de: 'cliente', hora: '20:43', lida: true },
-  { id: 4, texto: 'Perfeito! Seu pedido ficará R$ 89,00. Confirma?', de: 'eu', hora: '20:44', lida: true },
-  { id: 5, texto: 'Sim, pode confirmar! Endereço: Rua das Flores, 123', de: 'cliente', hora: '20:45', lida: false },
-]
+function tempoRelativo(dt: string): string {
+  const diff = Math.floor((Date.now() - new Date(dt).getTime()) / 60000)
+  if (diff < 1) return 'agora'
+  if (diff < 60) return diff + 'min'
+  if (diff < 1440) return Math.floor(diff / 60) + 'h'
+  return new Date(dt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+}
 
 function WhatsAppContent() {
   const searchParams = useSearchParams()
-  const [conversaSelecionada, setConversaSelecionada] = useState(CONVERSAS[0])
-  const [mensagem, setMensagem] = useState('')
-  const [msgs, setMsgs] = useState(MSGS_CONVERSA)
-  const [abaAtiva, setAbaAtiva] = useState<'chat' | 'automacoes' | 'configuracoes'>('chat')
-  const [numeroBusiness, setNumeroBusiness] = useState('(11) 94567-8900')
-  const [autoResposta, setAutoResposta] = useState(true)
+  const slug = searchParams.get('slug') || ''
 
-  const enviar = () => {
-    if (!mensagem.trim()) return
-    setMsgs([...msgs, { id: Date.now(), texto: mensagem, de: 'eu', hora: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}), lida: true }])
-    setMensagem('')
+  const [conversas, setConversas] = useState<Conversa[]>([])
+  const [mensagens, setMensagens] = useState<Mensagem[]>([])
+  const [conversaSelecionada, setConversaSelecionada] = useState<Conversa | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadingMsgs, setLoadingMsgs] = useState(false)
+  const [estabelecimentoId, setEstabelecimentoId] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [novaMensagem, setNovaMensagem] = useState('')
+  const [activeTab, setActiveTab] = useState<'conversas' | 'automacoes' | 'configuracoes'>('conversas')
+  const [statusConexao, setStatusConexao] = useState<'conectado' | 'desconectado' | 'verificando'>('verificando')
+  const [whatsappNum, setWhatsappNum] = useState('')
+
+  const fetchEstabelecimento = useCallback(async () => {
+    if (!slug) return
+    const { data } = await supabase.from('estabelecimentos').select('id, whatsapp, evolution_instance').eq('slug', slug).single()
+    if (data) {
+      setEstabelecimentoId(data.id)
+      setWhatsappNum(data.whatsapp || '')
+      setStatusConexao(data.evolution_instance ? 'conectado' : 'desconectado')
+    }
+  }, [slug])
+
+  const fetchConversas = useCallback(async (estId: string) => {
+    const { data } = await supabase
+      .from('conversas_ia')
+      .select('*')
+      .eq('estabelecimento_id', estId)
+      .order('ultima_mensagem_at', { ascending: false })
+      .limit(30)
+    setConversas(data || [])
+    if (data && data.length > 0 && !conversaSelecionada) {
+      setConversaSelecionada(data[0])
+    }
+  }, [conversaSelecionada])
+
+  const fetchMensagens = useCallback(async (conversaId: string) => {
+    setLoadingMsgs(true)
+    // Mark as read
+    await supabase.from('conversas_ia').update({ nao_lidas: 0 }).eq('id', conversaId)
+    setConversas(prev => prev.map(c => c.id === conversaId ? { ...c, nao_lidas: 0 } : c))
+    setLoadingMsgs(false)
+  }, [])
+
+  useEffect(() => { fetchEstabelecimento() }, [fetchEstabelecimento])
+
+  useEffect(() => {
+    if (!estabelecimentoId) return
+    const load = async () => { setLoading(true); await fetchConversas(estabelecimentoId); setLoading(false) }
+    load()
+  }, [estabelecimentoId, fetchConversas])
+
+  useEffect(() => {
+    if (conversaSelecionada) fetchMensagens(conversaSelecionada.id)
+  }, [conversaSelecionada, fetchMensagens])
+
+  const enviarMensagem = async () => {
+    if (!novaMensagem.trim() || !conversaSelecionada) return
+    const texto = novaMensagem
+    setNovaMensagem('')
+    // Registra mensagem enviada
+    await supabase.from('conversas_ia').update({
+      ultima_mensagem: texto,
+      ultima_mensagem_at: new Date().toISOString()
+    }).eq('id', conversaSelecionada.id)
+    setConversas(prev => prev.map(c => c.id === conversaSelecionada.id ? { ...c, ultima_mensagem: texto, ultima_mensagem_at: new Date().toISOString() } : c))
+    // TODO: enviar via Evolution API
   }
 
-  const tabStyle = (aba: string): React.CSSProperties => ({
-    padding: '10px 20px', border: 'none', background: 'none', cursor: 'pointer',
-    color: abaAtiva === aba ? '#ef4239' : '#888',
-    borderBottom: abaAtiva === aba ? '2px solid #ef4239' : '2px solid transparent',
-    fontSize: '13px', fontWeight: abaAtiva === aba ? 600 : 400,
-    fontFamily: 'Mulish, sans-serif'
-  })
+  const conversasFiltradas = conversas.filter(c =>
+    c.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.cliente_telefone?.includes(searchTerm)
+  )
+
+  const totalNaoLidas = conversas.reduce((acc, c) => acc + (c.nao_lidas || 0), 0)
 
   return (
-    <div style={{ backgroundColor: '#111', minHeight: '100vh', fontFamily: 'Mulish, sans-serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 0px)', fontFamily: 'Mulish, sans-serif', color: '#e6e6e6' }}>
       {/* Header */}
-      <div style={{ padding: '20px 24px 0', borderBottom: '1px solid #292929', backgroundColor: '#111', position: 'sticky', top: 0, zIndex: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-          <MessageCircle size={24} color='#25d366' />
-          <div>
-            <h1 style={{ color: '#fff', fontSize: '20px', fontWeight: 700, margin: 0 }}>WhatsApp Business</h1>
-            <p style={{ color: '#888', fontSize: '12px', margin: '2px 0 0' }}>Atendimento e automações</p>
-          </div>
-          <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderRadius: '999px', backgroundColor: '#25d36620', color: '#25d366', fontSize: '12px', fontWeight: 600 }}>
-            <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#25d366' }} />
-            Conectado
-          </span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #292929' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <MessageCircle size={20} color="#ef4239" />
+          <span style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>WhatsApp Business</span>
+          <span style={{ fontSize: '12px', color: '#666' }}>Atendimento e automacoes</span>
         </div>
-        <div style={{ display: 'flex' }}>
-          {(['chat', 'automacoes', 'configuracoes'] as const).map(aba => (
-            <button key={aba} onClick={() => setAbaAtiva(aba)} style={tabStyle(aba)}>
-              {aba === 'chat' ? 'Conversas' : aba === 'automacoes' ? 'Automações' : 'Configurações'}
-            </button>
-          ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {totalNaoLidas > 0 && (
+            <span style={{ background: '#ef4239', color: '#fff', borderRadius: '12px', padding: '2px 10px', fontSize: '12px', fontWeight: 700 }}>{totalNaoLidas} nao lidas</span>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusConexao === 'conectado' ? '#22c55e' : statusConexao === 'verificando' ? '#f59e0b' : '#666' }} />
+            <span style={{ fontSize: '13px', color: statusConexao === 'conectado' ? '#22c55e' : '#999', fontWeight: 600 }}>
+              {statusConexao === 'conectado' ? 'Conectado' : statusConexao === 'verificando' ? 'Verificando...' : 'Desconectado'}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* ABA CHAT */}
-      {abaAtiva === 'chat' && (
-        <div style={{ display: 'flex', height: 'calc(100vh - 120px)' }}>
-          {/* Lista de conversas */}
-          <div style={{ width: '300px', borderRight: '1px solid #292929', overflowY: 'auto' as const, flexShrink: 0 }}>
+      {/* Tabs */}
+      <div style={{ display: 'flex', borderBottom: '1px solid #292929', paddingLeft: '20px' }}>
+        {[
+          { id: 'conversas', label: 'Conversas' },
+          { id: 'automacoes', label: 'Automacoes' },
+          { id: 'configuracoes', label: 'Configuracoes' },
+        ].map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
+            style={{ padding: '10px 20px', background: 'none', border: 'none', borderBottom: activeTab === tab.id ? '2px solid #ef4239' : '2px solid transparent', color: activeTab === tab.id ? '#ef4239' : '#999', cursor: 'pointer', fontSize: '14px', fontWeight: activeTab === tab.id ? 600 : 400, fontFamily: 'Mulish, sans-serif' }}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'conversas' && (
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+          {/* Lista conversas */}
+          <div style={{ width: '340px', borderRight: '1px solid #292929', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
             <div style={{ padding: '12px' }}>
-              <input placeholder='Buscar conversa...' style={{
-                width: '100%', padding: '8px 12px', backgroundColor: '#1a1a1a',
-                border: '1px solid #292929', borderRadius: '8px', color: '#e6e6e6',
-                fontSize: '13px', fontFamily: 'Mulish, sans-serif', boxSizing: 'border-box' as const
-              }} />
-            </div>
-            {CONVERSAS.map(c => (
-              <div key={c.id} onClick={() => setConversaSelecionada(c)} style={{
-                padding: '14px 16px', cursor: 'pointer',
-                backgroundColor: conversaSelecionada.id === c.id ? '#1a1a1a' : 'transparent',
-                borderBottom: '1px solid #1a1a1a',
-                display: 'flex', gap: '12px', alignItems: 'center'
-              }}>
-                <div style={{ position: 'relative' as const, flexShrink: 0 }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#25d36630', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#25d366', fontWeight: 700, fontSize: '15px' }}>
-                    {c.nome.charAt(0)}
-                  </div>
-                  {c.status === 'online' && <span style={{ position: 'absolute' as const, bottom: 0, right: 0, width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#25d366', border: '2px solid #111' }} />}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: '#e6e6e6', fontSize: '14px', fontWeight: 500 }}>{c.nome}</span>
-                    <span style={{ color: '#555', fontSize: '11px' }}>{c.hora}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: '#888', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{c.ultima}</span>
-                    {c.naoLidas > 0 && <span style={{ backgroundColor: '#25d366', color: '#fff', borderRadius: '999px', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>{c.naoLidas}</span>}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Chat */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' as const }}>
-            {/* Header conversa */}
-            <div style={{ padding: '14px 20px', borderBottom: '1px solid #292929', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#25d36630', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#25d366', fontWeight: 700 }}>
-                {conversaSelecionada.nome.charAt(0)}
-              </div>
-              <div>
-                <div style={{ color: '#fff', fontWeight: 600, fontSize: '14px' }}>{conversaSelecionada.nome}</div>
-                <div style={{ color: '#888', fontSize: '12px' }}>{conversaSelecionada.tel}</div>
-              </div>
-              <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
-                <button style={{ background: 'none', border: '1px solid #292929', borderRadius: '8px', padding: '6px 12px', color: '#888', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontFamily: 'Mulish, sans-serif' }}>
-                  <Phone size={13} /> Ligar
-                </button>
+              <div style={{ position: 'relative' }}>
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#666' }} />
+                <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Buscar conversa..."
+                  style={{ width: '100%', background: '#1a1a1a', border: '1px solid #292929', borderRadius: '8px', padding: '8px 12px 8px 32px', color: '#e6e6e6', fontSize: '13px', boxSizing: 'border-box', fontFamily: 'Mulish, sans-serif' }} />
               </div>
             </div>
-
-            {/* Mensagens */}
-            <div style={{ flex: 1, overflowY: 'auto' as const, padding: '20px', display: 'flex', flexDirection: 'column' as const, gap: '12px', backgroundColor: '#0d0d0d' }}>
-              {msgs.map(m => (
-                <div key={m.id} style={{ display: 'flex', justifyContent: m.de === 'eu' ? 'flex-end' : 'flex-start' }}>
-                  <div style={{
-                    maxWidth: '70%', padding: '10px 14px', borderRadius: m.de === 'eu' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-                    backgroundColor: m.de === 'eu' ? '#25d36620' : '#1a1a1a',
-                    border: m.de === 'eu' ? '1px solid #25d36640' : '1px solid #292929',
-                  }}>
-                    <p style={{ color: '#e6e6e6', fontSize: '14px', margin: '0 0 4px', lineHeight: '1.4' }}>{m.texto}</p>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ color: '#555', fontSize: '11px' }}>{m.hora}</span>
-                      {m.de === 'eu' && (m.lida ? <CheckCheck size={12} color='#25d366' /> : <Check size={12} color='#555' />)}
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {loading ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: '#666', fontSize: '13px' }}>Carregando conversas...</div>
+              ) : conversasFiltradas.length === 0 ? (
+                <div style={{ padding: '40px', textAlign: 'center' }}>
+                  <MessageCircle size={32} color="#333" style={{ margin: '0 auto 12px' }} />
+                  <p style={{ color: '#666', fontSize: '13px' }}>
+                    {conversas.length === 0 ? 'Nenhuma conversa ainda. As mensagens recebidas via WhatsApp aparecerao aqui.' : 'Nenhum resultado.'}
+                  </p>
+                </div>
+              ) : conversasFiltradas.map(c => (
+                <div key={c.id} onClick={() => setConversaSelecionada(c)}
+                  style={{ display: 'flex', gap: '12px', padding: '14px', cursor: 'pointer', borderBottom: '1px solid #1f1f1f', background: conversaSelecionada?.id === c.id ? 'rgba(239,66,57,0.08)' : 'transparent', borderLeft: conversaSelecionada?.id === c.id ? '3px solid #ef4239' : '3px solid transparent' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#292929', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 700, color: '#e6e6e6', flexShrink: 0 }}>
+                    {c.cliente_nome?.charAt(0).toUpperCase() || '?'}
+                  </div>
+                  <div style={{ flex: 1, overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#e6e6e6' }}>{c.cliente_nome || c.cliente_telefone}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '11px', color: '#666' }}>{c.ultima_mensagem_at ? tempoRelativo(c.ultima_mensagem_at) : ''}</span>
+                        {(c.nao_lidas || 0) > 0 && (
+                          <span style={{ background: '#22c55e', color: '#fff', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>{c.nao_lidas}</span>
+                        )}
+                      </div>
                     </div>
+                    <div style={{ fontSize: '12px', color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.ultima_mensagem || '...'}</div>
+                    <div style={{ fontSize: '11px', color: '#444', marginTop: '2px' }}>{c.cliente_telefone}</div>
                   </div>
                 </div>
               ))}
             </div>
-
-            {/* Input mensagem */}
-            <div style={{ padding: '12px 20px', borderTop: '1px solid #292929', backgroundColor: '#111' }}>
-              {/* Mensagens rapidas */}
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', overflowX: 'auto' as const }}>
-                {MENSAGENS_RAPIDAS.map(mr => (
-                  <button key={mr.id} onClick={() => setMensagem(mr.texto)} style={{
-                    padding: '4px 10px', borderRadius: '999px', border: '1px solid #292929',
-                    backgroundColor: '#1a1a1a', color: '#888', fontSize: '12px',
-                    cursor: 'pointer', whiteSpace: 'nowrap' as const, fontFamily: 'Mulish, sans-serif'
-                  }}>
-                    ⚡ {mr.titulo}
-                  </button>
-                ))}
-              </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <input
-                  value={mensagem}
-                  onChange={e => setMensagem(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && enviar()}
-                  placeholder='Digite uma mensagem...'
-                  style={{ flex: 1, padding: '10px 14px', backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: '8px', color: '#e6e6e6', fontSize: '14px', fontFamily: 'Mulish, sans-serif' }}
-                />
-                <button onClick={enviar} style={{
-                  padding: '10px 18px', borderRadius: '8px', border: 'none',
-                  backgroundColor: '#25d366', color: '#fff', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'Mulish, sans-serif'
-                }}>
-                  <Send size={16} />
-                </button>
-              </div>
-            </div>
           </div>
-        </div>
-      )}
 
-      {/* ABA AUTOMACOES */}
-      {abaAtiva === 'automacoes' && (
-        <div style={{ padding: '24px', maxWidth: '800px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Bot size={18} color='#ef4239' />
-              <span style={{ color: '#fff', fontWeight: 700, fontSize: '16px' }}>Mensagens Automáticas</span>
-            </div>
-            <button style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', border: 'none', backgroundColor: '#ef4239', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Mulish, sans-serif' }}>
-              <Plus size={14} /> Nova Automação
-            </button>
-          </div>
-          {MENSAGENS_RAPIDAS.map(mr => (
-            <div key={mr.id} style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: '12px', padding: '16px', marginBottom: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Zap size={14} color='#f59e0b' />
-                  <span style={{ color: '#fff', fontWeight: 600, fontSize: '14px' }}>{mr.titulo}</span>
+          {/* Area da conversa */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            {!conversaSelecionada ? (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <MessageCircle size={48} color="#333" style={{ margin: '0 auto 16px' }} />
+                  <p style={{ fontSize: '15px' }}>Selecione uma conversa</p>
                 </div>
-                <span style={{ padding: '2px 8px', borderRadius: '999px', backgroundColor: '#22c55e20', color: '#22c55e', fontSize: '11px', fontWeight: 600 }}>Ativo</span>
               </div>
-              <p style={{ color: '#888', fontSize: '13px', margin: 0, backgroundColor: '#111', padding: '10px', borderRadius: '8px', fontFamily: 'monospace', lineHeight: '1.5' }}>{mr.texto}</p>
-            </div>
-          ))}
+            ) : (
+              <>
+                {/* Header conversa */}
+                <div style={{ padding: '14px 20px', borderBottom: '1px solid #292929', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#292929', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700, color: '#e6e6e6' }}>
+                      {conversaSelecionada.cliente_nome?.charAt(0).toUpperCase() || '?'}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#fff' }}>{conversaSelecionada.cliente_nome}</div>
+                      <div style={{ fontSize: '12px', color: '#666' }}>{conversaSelecionada.cliente_telefone}</div>
+                    </div>
+                  </div>
+                  <button style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', background: '#1a1a1a', border: '1px solid #292929', borderRadius: '6px', color: '#999', cursor: 'pointer', fontSize: '12px' }}>
+                    <Phone size={12} /> Ligar
+                  </button>
+                </div>
+
+                {/* Mensagens */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', background: '#0d0d0d' }}>
+                  {mensagens.length === 0 ? (
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: '#444' }}>
+                      <MessageCircle size={32} color="#222" style={{ marginBottom: '12px' }} />
+                      <p style={{ fontSize: '13px' }}>Historico de mensagens aparecera aqui</p>
+                      <p style={{ fontSize: '11px', color: '#333', marginTop: '6px' }}>Ultima mensagem: {conversaSelecionada.ultima_mensagem}</p>
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Respostas rapidas */}
+                <div style={{ padding: '8px 16px', borderTop: '1px solid #1f1f1f', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {RESPOSTAS_RAPIDAS.map(r => (
+                    <button key={r} onClick={() => setNovaMensagem(r)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', background: '#1a1a1a', border: '1px solid #292929', borderRadius: '20px', color: '#999', cursor: 'pointer', fontSize: '11px', fontFamily: 'Mulish, sans-serif' }}>
+                      <Zap size={10} color="#ef4239" /> {r}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Input */}
+                <div style={{ display: 'flex', gap: '10px', padding: '12px 16px', borderTop: '1px solid #292929', background: '#111' }}>
+                  <input value={novaMensagem} onChange={e => setNovaMensagem(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && enviarMensagem()}
+                    placeholder="Digite uma mensagem..."
+                    style={{ flex: 1, background: '#1a1a1a', border: '1px solid #292929', borderRadius: '24px', padding: '10px 18px', color: '#e6e6e6', fontSize: '13px', outline: 'none', fontFamily: 'Mulish, sans-serif' }} />
+                  <button onClick={enviarMensagem} disabled={!novaMensagem.trim()}
+                    style={{ width: '42px', height: '42px', borderRadius: '50%', background: novaMensagem.trim() ? '#ef4239' : '#1a1a1a', border: 'none', cursor: novaMensagem.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Send size={16} color={novaMensagem.trim() ? '#fff' : '#444'} />
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 
-      {/* ABA CONFIGURACOES */}
-      {abaAtiva === 'configuracoes' && (
-        <div style={{ padding: '24px', maxWidth: '600px' }}>
-          <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: '12px', padding: '20px', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-              <Phone size={16} color='#ef4239' />
-              <span style={{ color: '#fff', fontWeight: 700, fontSize: '15px' }}>Número Business</span>
-            </div>
-            <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Número de telefone conectado</label>
-            <input value={numeroBusiness} onChange={e => setNumeroBusiness(e.target.value)}
-              style={{ width: '100%', padding: '10px 12px', backgroundColor: '#111', border: '1px solid #292929', borderRadius: '8px', color: '#e6e6e6', fontSize: '14px', fontFamily: 'Mulish, sans-serif', boxSizing: 'border-box' as const }} />
-          </div>
-          <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #292929', borderRadius: '12px', padding: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ color: '#fff', fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}>Resposta Automática</div>
-                <div style={{ color: '#888', fontSize: '12px' }}>Responder automaticamente fora do horário</div>
+      {activeTab === 'automacoes' && (
+        <div style={{ padding: '24px', flex: 1, overflowY: 'auto' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+            {[
+              { titulo: 'Confirmacao de Pedido', desc: 'Envia mensagem automatica quando pedido e confirmado', ativo: true, icone: '🛍' },
+              { titulo: 'Saiu para Entrega', desc: 'Notifica cliente quando entregador sai com o pedido', ativo: true, icone: '🛵' },
+              { titulo: 'Pedido Entregue', desc: 'Confirma entrega e solicita avaliacao', ativo: false, icone: '✅' },
+              { titulo: 'Boas-vindas', desc: 'Mensagem automatica para novos clientes', ativo: true, icone: '👋' },
+              { titulo: 'Cardapio do Dia', desc: 'Envia destaques do cardapio todos os dias', ativo: false, icone: '📋' },
+              { titulo: 'Recuperar Clientes', desc: 'Mensagem para clientes que nao pedem ha 15 dias', ativo: false, icone: '💡' },
+            ].map((auto, i) => (
+              <div key={i} style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: '12px', padding: '18px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '28px' }}>{auto.icone}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 600, color: '#e6e6e6' }}>{auto.titulo}</span>
+                    <div style={{ width: '36px', height: '20px', background: auto.ativo ? '#ef4239' : '#292929', borderRadius: '10px', position: 'relative', cursor: 'pointer' }}>
+                      <div style={{ position: 'absolute', top: '3px', left: auto.ativo ? '18px' : '3px', width: '14px', height: '14px', background: '#fff', borderRadius: '50%', transition: 'left 0.2s' }} />
+                    </div>
+                  </div>
+                  <p style={{ fontSize: '12px', color: '#666', margin: 0 }}>{auto.desc}</p>
+                </div>
               </div>
-              <button onClick={() => setAutoResposta(!autoResposta)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: autoResposta ? '#22c55e' : '#444' }}>
-                {autoResposta ? <Bell size={28} /> : <Bell size={28} />}
-              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'configuracoes' && (
+        <div style={{ padding: '24px', flex: 1, overflowY: 'auto' }}>
+          <div style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: '12px', padding: '24px', maxWidth: '500px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+              <Settings size={16} color="#ef4239" />
+              <span style={{ fontSize: '15px', fontWeight: 600, color: '#e6e6e6' }}>Conexao WhatsApp Business</span>
             </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', background: '#111', borderRadius: '10px', padding: '14px' }}>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: statusConexao === 'conectado' ? '#22c55e' : '#ef4239', flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#e6e6e6' }}>
+                  {statusConexao === 'conectado' ? 'Conectado' : 'Nao conectado'}
+                </div>
+                <div style={{ fontSize: '12px', color: '#666' }}>
+                  {whatsappNum ? 'Numero: ' + whatsappNum : 'Nenhum numero vinculado'}
+                </div>
+              </div>
+            </div>
+            <p style={{ fontSize: '13px', color: '#666', marginBottom: '16px' }}>
+              Para conectar, acesse o painel da Evolution API e escaneie o QR Code com seu WhatsApp Business.
+            </p>
+            <button style={{ width: '100%', padding: '12px', background: '#ef4239', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: 700, fontFamily: 'Mulish, sans-serif' }}>
+              Conectar via QR Code
+            </button>
           </div>
         </div>
       )}
@@ -241,7 +328,7 @@ function WhatsAppContent() {
 
 export default function WhatsAppPage() {
   return (
-    <Suspense fallback={<div style={{ backgroundColor: '#111', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontFamily: 'Mulish, sans-serif' }}>Carregando...</div>}>
+    <Suspense fallback={<div style={{ padding: 24, color: '#999', fontFamily: 'Mulish, sans-serif' }}>Carregando...</div>}>
       <WhatsAppContent />
     </Suspense>
   )
