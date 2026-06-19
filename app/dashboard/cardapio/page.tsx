@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { LayoutGrid, List, RefreshCw, Search } from 'lucide-react'
+import { LayoutGrid, List, RefreshCw, Search, Trash2 } from 'lucide-react'
 
 type Categoria = {
   id: string
