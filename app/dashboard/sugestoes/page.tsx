@@ -63,7 +63,14 @@ function SugestoesContent() {
   }, [estabelecimentoId])
 
   useEffect(() => { fetchEstabelecimento() }, [fetchEstabelecimento])
-  useEffect(() => { if (estabelecimentoId) fetchMinhasSugestoes() }, [estabelecimentoId, fetchMinhasSugestoes])
+  useEffect(() => {
+    if (!estabelecimentoId) return
+    fetchMinhasSugestoes()
+    const ch = supabase.channel('sug-' + estabelecimentoId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sugestoes', filter: 'estabelecimento_id=eq.' + estabelecimentoId }, () => { fetchMinhasSugestoes() })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [estabelecimentoId, fetchMinhasSugestoes])
 
   const enviarSugestao = async () => {
     if (!form.titulo || !estabelecimentoId) return
