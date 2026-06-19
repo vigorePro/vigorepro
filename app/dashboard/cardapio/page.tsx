@@ -249,7 +249,7 @@ function CardapioContent() {
                       <div key={cat.id} style={{ marginBottom: '28px' }}>
                         {/* Header categoria */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px', padding: '10px 14px', backgroundColor: '#1a1a1a', borderRadius: '8px', border: '1px solid #2a2a2a' }}>
-                          <span style={{ fontSize: '18px' }}></span>
+                          <span style={{ fontSize: '12px', color: '#555' }}>IMG</span>
                           <span style={{ fontWeight: '600', fontSize: '14px', color: '#fff' }}>{cat.nome}</span>
                           <span style={{ fontSize: '12px', color: '#6b7280', padding: '2px 8px', backgroundColor: '#2a2a2a', borderRadius: '10px' }}>{prods.length} produtos</span>
                           <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
@@ -269,21 +269,21 @@ function CardapioContent() {
                                   {produto.imagem_url ? (
                                     <img src={produto.imagem_url} alt={produto.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                   ) : (
-                                    <span style={{ fontSize: '24px' }}></span>
+                                    <span style={{ fontSize: '12px', color: '#555' }}>#</span>
                                   )}
                                 </div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <span style={{ fontWeight: '600', fontSize: '13px', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>{produto.nome}</span>
-                                    <button style={{ backgroundColor: 'transparent', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '16px', padding: '0', flexShrink: 0 }}></button>
+                                    <button style={{ backgroundColor: 'transparent', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '16px', padding: '0', flexShrink: 0 }}>✕</button>
                                   </div>
                                   <div style={{ color: '#eb0029', fontWeight: '700', fontSize: '14px', marginTop: '4px' }}>{formatarPreco(produto.preco)}</div>
                                 </div>
                               </div>
                               <div style={{ padding: '8px 12px', borderTop: '1px solid #2a2a2a', display: 'flex', gap: '6px', alignItems: 'center' }}>
                                 <span title={produto.disponivel ? 'Ativo' : 'Inativo'} style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: produto.disponivel ? '#10b981' : '#4b5563', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', cursor: 'pointer' }} onClick={() => toggleDisponivel(produto.id, produto.disponivel)}></span>
-                                <span title="Delivery" style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}></span>
-                                <span title="Mesa" style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}></span>
+                                <span title="Delivery" style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', fontWeight: 'bold' }}>D</span>
+                                <span title="Mesa" style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', fontWeight: 'bold' }}>M</span>
                                 <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
                                   <button onClick={() => { setProdutoEditando(produto); setModalAberto(true) }} style={{ width: '26px', height: '26px', borderRadius: '4px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#9ca3af', cursor: 'pointer', fontSize: '12px' }}></button>
                                   <button onClick={() => excluirProduto(produto.id)} style={{ width: '26px', height: '26px', borderRadius: '4px', border: '1px solid #2a2a2a', backgroundColor: '#111111', color: '#ef4444', cursor: 'pointer', fontSize: '12px' }}></button>
