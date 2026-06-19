@@ -66,7 +66,15 @@ function FidelidadeContent() {
     setLoading(false)
   }, [estabelecimentoId])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    fetchData()
+    if (!estabelecimentoId) return
+    const ch = supabase.channel('fid-' + estabelecimentoId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cupons', filter: 'estabelecimento_id=eq.' + estabelecimentoId }, () => { fetchData() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clientes', filter: 'estabelecimento_id=eq.' + estabelecimentoId }, () => { fetchData() })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [fetchData, estabelecimentoId])
 
   const criarCupom = async () => {
     if (!form.codigo || !form.desconto_valor) return
