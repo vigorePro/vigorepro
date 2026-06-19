@@ -63,6 +63,15 @@ async function buscarCardapio(estabelecimento_id: string) {
   return texto.trim()
 }
 
+
+// Busca cliente pelo telefone/sessionId no CRM
+async function buscarCliente(sessionId: string, estabelecimento_id: string) {
+  // Tenta buscar pelo telefone
+  const { data } = await supabase.from('clientes').select('nome, telefone, email, total_pedidos, total_gasto').eq('estabelecimento_id', estabelecimento_id).or(`telefone.eq.${sessionId},telefone.eq.+55${sessionId},telefone.eq.55${sessionId}`).limit(1)
+  if (data && data.length > 0) return data[0]
+  return null
+}
+
 // Cria pedido no Supabase
 export async function POST(req: NextRequest) {
   try {
@@ -84,9 +93,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Busca cardapio e historico em paralelo
-    const [cardapio, historico] = await Promise.all([
+    const [cardapio, historico, clienteExistente] = await Promise.all([
       buscarCardapio(estabelecimento.id),
       buscarHistorico(sessionId, estabelecimento.id),
+      buscarCliente(sessionId, estabelecimento.id),
     ])
 
     // Salva mensagem do usuario
@@ -185,7 +195,18 @@ REGRAS TECNICAS:
 - O campo "categoria" de cada item deve ser o nome exato da categoria do produto no cardapio
 - O campo "preco" de cada item deve ser o preco EXATO do produto no cardapio
 - O "valor_total" deve ser a soma de (preco * quantidade) de todos os itens
-- Mantenha respostas curtas e naturais`
+- Mantenha respostas curtas e naturais
+
+IDENTIFICACAO DO CLIENTE:
+${clienteExistente ? 
+  `- O cliente JA ESTA CADASTRADO na base de dados. Nome: ${clienteExistente.nome}. Saudacao inicial OBRIGATORIA: use o nome dele, ex: "Ola, ${clienteExistente.nome}! Tudo bem?". Total de pedidos anteriores: ${clienteExistente.total_pedidos || 0}.` 
+  : `- O cliente NAO ESTA CADASTRADO. Na primeira interacao, apresente-se e PECA O NOME educadamente, explicando que e para manter controle e enviar promocoes exclusivas da loja. Ex: "Ola! Sou a MEL 😊 Para te atender melhor e enviar nossas promocoes, pode me dizer seu nome?"`
+}
+
+CARDAPIO DIGITAL:
+- Quando o cliente perguntar sobre produtos, opcoes, precos ou o que voce tem disponivel, SEMPRE envie o link do cardapio digital: https://dolcedolce.vigorepro.com.br/cardapio/dolcedolce
+- Diga algo como: "Aqui esta nosso cardapio completo com todos os produtos e precos: https://dolcedolce.vigorepro.com.br/cardapio/dolcedolce 😋"
+- Voce pode complementar com informacoes especificas do produto que ele perguntou, mas sempre envie o link`
 
     const messages = [
       ...historico.map((h) => ({
