@@ -33,7 +33,7 @@ function IAContent() {
   const [abaAtiva, setAbaAtiva] = useState<'painel'|'teste'>('painel')
 
   const [testeMensagens, setTesteMensagens] = useState<MensagemChat[]>([
-    { role: 'assistant', content: 'Ola! Sou a MEL. Este e o modo de teste Ã¢ÂÂ experimente conversar comigo como se fosse um cliente! :)' }
+    { role: 'assistant', content: 'Ola! Sou a MEL. Este e o modo de teste ÃÂ¢ÃÂÃÂ experimente conversar comigo como se fosse um cliente! :)' }
   ])
   const [testeInput, setTesteInput] = useState('')
   const [testeCarregando, setTesteCarregando] = useState(false)
@@ -179,7 +179,7 @@ function IAContent() {
           </div>
           <div>
             <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>Inteligencia Artificial</h1>
-            <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>MEL Ã¢ÂÂ Assistente virtual powered by Claude AI</p>
+            <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>MEL ÃÂ¢ÃÂÃÂ Assistente virtual powered by Claude AI</p>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -271,7 +271,7 @@ function IAContent() {
           <div style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 480 }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid #292929', display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981' }} />
-              <span style={{ fontWeight: 700, fontSize: 14 }}>Chat de Teste Ã¢ÂÂ MEL</span>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>Chat de Teste ÃÂ¢ÃÂÃÂ MEL</span>
               <span style={{ fontSize: 12, color: '#6b7280', marginLeft: 4 }}>Simule a experiencia do cliente</span>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -359,7 +359,7 @@ function IAContent() {
                     {m.content}
                   </div>
                   <div style={{ fontSize: 10, color: '#6b7280', marginTop: 3, paddingLeft: 4, paddingRight: 4 }}>
-                    {new Date(m.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · {m.role === 'user' ? 'Cliente' : 'MEL'}
+                    {new Date(m.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} Â· {m.role === 'user' ? 'Cliente' : 'MEL'}
                   </div>
                 </div>
               ))
