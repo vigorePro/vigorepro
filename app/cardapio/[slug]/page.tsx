@@ -58,7 +58,7 @@ function CardapioPublico({ params }: { params: { slug: string } }) {
   // IA Chat state
   const [chatAberto, setChatAberto] = useState(false)
   const [chatMensagens, setChatMensagens] = useState<{role: 'user'|'assistant', content: string}[]>([
-    { role: 'assistant', content: 'Ola! Sou a MEL, assistente da ' + (config?.nome || 'nossa loja') + '. Como posso ajudar? :)' }
+    { role: 'assistant', content: 'Ola! Sou a MEL, assistente virtual da loja. Como posso ajudar? :)' }
   ])
   const [chatInput, setChatInput] = useState('')
   const [chatCarregando, setChatCarregando] = useState(false)
