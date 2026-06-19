@@ -275,7 +275,7 @@ function CardapioContent() {
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <span style={{ fontWeight: '600', fontSize: '13px', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>{produto.nome}</span>
-                                    <button style={{ backgroundColor: 'transparent', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '16px', padding: '0', flexShrink: 0 }}>✕</button>
+                                    <button style={{ backgroundColor: 'transparent', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '16px', padding: '0', flexShrink: 0 }}>X</button>
                                   </div>
                                   <div style={{ color: '#eb0029', fontWeight: '700', fontSize: '14px', marginTop: '4px' }}>{formatarPreco(produto.preco)}</div>
                                 </div>
