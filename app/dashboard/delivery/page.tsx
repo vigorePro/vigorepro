@@ -147,6 +147,28 @@ function DeliveryContent() {
   const [viewMode, setViewMode] = useState<'kanban' | 'lista'>('kanban')
   const [aceiteAuto, setAceiteAuto] = useState(false)
   const intervalRef = useRef<any>(null)
+  const prevCountRef = useRef<number>(0)
+  const soundRef = useRef<boolean>(false)
+
+  const tocarSom = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const playBeep = (freq: number, start: number, dur: number) => {
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.connect(gain); gain.connect(ctx.destination)
+        osc.frequency.value = freq
+        osc.type = 'sine'
+        gain.gain.setValueAtTime(0.3, ctx.currentTime + start)
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur)
+        osc.start(ctx.currentTime + start)
+        osc.stop(ctx.currentTime + start + dur)
+      }
+      playBeep(880, 0, 0.15)
+      playBeep(1100, 0.18, 0.15)
+      playBeep(1320, 0.36, 0.25)
+    } catch {}
+  }, [])
 
   const fetchEstabelecimento = useCallback(async () => {
     if (!slug) return
@@ -167,9 +189,13 @@ function DeliveryContent() {
       .order('created_at', { ascending: false })
     if (data) {
       const mapped = data.map((p: any) => ({ ...p, itens: p.itens_comanda || [] }))
+      const novosAguardando = mapped.filter((p: any) => p.status === 'aguardando').length
+      if (soundRef.current && novosAguardando > prevCountRef.current) { tocarSom() }
+      prevCountRef.current = novosAguardando
+      soundRef.current = true
       setPedidos(mapped)
     }
-  }, [])
+  }, [tocarSom])
 
   useEffect(() => { fetchEstabelecimento() }, [fetchEstabelecimento])
 
