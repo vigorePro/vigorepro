@@ -2,7 +2,7 @@
 import { Suspense, useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { MessageCircle, Send, RefreshCw, Users, TrendingUp, Clock, Bot, Zap, Star, AlertCircle, X, PhoneCall } from 'lucide-react'
+import { MessageCircle, Send, RefreshCw, Users, TrendingUp, Clock, Bot, Zap, Star, AlertCircle, X, PhoneCall, UserCheck } from 'lucide-react'
 
 type Conversa = {
 telefone: string
@@ -17,7 +17,7 @@ content: string
 }
 
 type MensagemHistorico = {
-role: 'user' | 'assistant'
+role: 'user' | 'assistant' | 'atendente'
 content: string
 criado_em: string
 }
@@ -58,6 +58,9 @@ const [loadingMensagens, setLoadingMensagens] = useState(false)
 const painelRef = useRef<HTMLDivElement>(null)
 const [piscarHumano, setPiscarHumano] = useState<Set<string>>(new Set())
 const dismissedRef = useRef<Set<string>>(new Set())
+const [atendenteInput, setAtendenteInput] = useState('')
+const [enviandoAtendente, setEnviandoAtendente] = useState(false)
+const atendenteInputRef = useRef<HTMLInputElement>(null)
 
 useEffect(() => {
 const style = document.createElement('style')
@@ -112,28 +115,60 @@ setLoading(false)
 }
 }, [estabelecimentoId])
 
+const recarregarConversa = useCallback(async (telefone: string) => {
+if (!estabelecimentoId) return
+const { data } = await supabase.from('conversas_ia').select('role, content, criado_em').eq('estabelecimento_id', estabelecimentoId).eq('telefone', telefone).order('criado_em', { ascending: true })
+setMensagensConversa(data || [])
+setTimeout(() => painelRef.current?.scrollTo({ top: 99999, behavior: 'smooth' }), 80)
+}, [estabelecimentoId])
+
 useEffect(() => {
 if (!estabelecimentoId) return
 fetchDados()
-
-// Realtime: atualiza ao vivo quando chegar nova mensagem
 const channel = supabase.channel('ia-realtime-' + estabelecimentoId)
 .on('postgres_changes', {
 event: 'INSERT',
 schema: 'public',
 table: 'conversas_ia',
 filter: 'estabelecimento_id=eq.' + estabelecimentoId
-}, () => { fetchDados() })
+}, (payload) => {
+fetchDados()
+setConversaAberta(prev => {
+if (prev && payload.new && (payload.new as { telefone?: string }).telefone === prev.telefone) {
+recarregarConversa(prev.telefone)
+}
+return prev
+})
+})
 .subscribe()
-
-// Polling a cada 15s como fallback garantido
 const interval = setInterval(() => { fetchDados() }, 15000)
-
 return () => {
 supabase.removeChannel(channel)
 clearInterval(interval)
 }
-}, [estabelecimentoId, fetchDados])
+}, [estabelecimentoId, fetchDados, recarregarConversa])
+
+const enviarMensagemAtendente = async () => {
+if (!atendenteInput.trim() || enviandoAtendente || !conversaAberta || !estabelecimentoId) return
+const texto = atendenteInput.trim()
+setAtendenteInput('')
+setEnviandoAtendente(true)
+try {
+const novaMsg: MensagemHistorico = { role: 'atendente', content: texto, criado_em: new Date().toISOString() }
+setMensagensConversa(prev => [...prev, novaMsg])
+setTimeout(() => painelRef.current?.scrollTo({ top: 99999, behavior: 'smooth' }), 80)
+await supabase.from('conversas_ia').insert({
+estabelecimento_id: estabelecimentoId,
+telefone: conversaAberta.telefone,
+role: 'atendente',
+content: texto,
+criado_em: new Date().toISOString(),
+})
+} finally {
+setEnviandoAtendente(false)
+setTimeout(() => atendenteInputRef.current?.focus(), 100)
+}
+}
 
 const enviarTesteChat = async () => {
 if (!testeInput.trim() || testeCarregando) return
@@ -165,11 +200,15 @@ return { label: 'WhatsApp', cor: '#25d366' }
 
 const abrirConversa = async (conversa: Conversa) => {
 setConversaAberta(conversa)
+setAtendenteInput('')
 setLoadingMensagens(true)
 const { data } = await supabase.from('conversas_ia').select('role, content, criado_em').eq('estabelecimento_id', estabelecimentoId!).eq('telefone', conversa.telefone).order('criado_em', { ascending: true })
 setMensagensConversa(data || [])
 setLoadingMensagens(false)
-setTimeout(() => painelRef.current?.scrollTo({ top: 99999, behavior: 'smooth' }), 100)
+setTimeout(() => {
+painelRef.current?.scrollTo({ top: 99999, behavior: 'smooth' })
+atendenteInputRef.current?.focus()
+}, 100)
 }
 
 const dispensarAlerta = (telefone: string, e: React.MouseEvent) => {
@@ -185,6 +224,12 @@ if (diff < 1) return 'agora'
 if (diff < 60) return diff + 'min atras'
 if (diff < 1440) return Math.floor(diff/60) + 'h atras'
 return Math.floor(diff/1440) + 'd atras'
+}
+
+const getBubbleStyle = (role: string) => {
+if (role === 'user') return { align: 'flex-end' as const, bg: '#ef4239', border: 'none', label: 'Cliente' }
+if (role === 'atendente') return { align: 'flex-end' as const, bg: '#059669', border: 'none', label: 'Atendente' }
+return { align: 'flex-start' as const, bg: '#1e1e1e', border: '1px solid #292929', label: 'MEL' }
 }
 
 return (
@@ -327,7 +372,8 @@ return (
 
 {conversaAberta && (
 <div style={{ position: 'fixed', top: 0, right: 0, width: 420, height: '100vh', background: '#111', borderLeft: '1px solid #292929', zIndex: 1000, display: 'flex', flexDirection: 'column', boxShadow: '-4px 0 24px rgba(0,0,0,0.5)' }}>
-<div style={{ padding: '16px 20px', borderBottom: '1px solid #292929', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#1a1a1a' }}>
+{/* Header */}
+<div style={{ padding: '16px 20px', borderBottom: '1px solid #292929', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#1a1a1a', flexShrink: 0 }}>
 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#292929', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Users size={16} color="#9ca3af" /></div>
 <div>
@@ -340,19 +386,56 @@ return (
 </div>
 <button onClick={() => setConversaAberta(null)} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', padding: 6, borderRadius: 8 }}><X size={18} /></button>
 </div>
+{/* Legenda */}
+<div style={{ padding: '6px 16px', borderBottom: '1px solid #1a1a1a', background: '#111', display: 'flex', gap: 14, flexShrink: 0 }}>
+{[{cor:'#ef4239',label:'Cliente'},{cor:'#6b7280',label:'MEL (IA)'},{cor:'#059669',label:'Atendente'}].map(item => (
+<div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+<div style={{ width: 8, height: 8, borderRadius: '50%', background: item.cor }} />
+<span style={{ fontSize: 10, color: '#6b7280' }}>{item.label}</span>
+</div>
+))}
+</div>
+{/* Mensagens */}
 <div ref={painelRef} style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
 {loadingMensagens ? (
 <div style={{ textAlign: 'center', color: '#6b7280', marginTop: 40, fontSize: 13 }}>Carregando mensagens...</div>
 ) : mensagensConversa.length === 0 ? (
 <div style={{ textAlign: 'center', color: '#6b7280', marginTop: 40, fontSize: 13 }}>Nenhuma mensagem encontrada</div>
 ) : (
-mensagensConversa.map((m, i) => (
-<div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-<div style={{ maxWidth: '82%', padding: '10px 14px', borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px', background: m.role === 'user' ? '#ef4239' : '#1e1e1e', color: '#fff', fontSize: 13, lineHeight: 1.5, border: m.role === 'assistant' ? '1px solid #292929' : 'none' }}>{m.content}</div>
-<div style={{ fontSize: 10, color: '#6b7280', marginTop: 3, paddingLeft: 4, paddingRight: 4 }}>{new Date(m.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · {m.role === 'user' ? 'Cliente' : 'MEL'}</div>
+mensagensConversa.map((m, i) => {
+const style = getBubbleStyle(m.role)
+return (
+<div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: style.align }}>
+<div style={{ maxWidth: '82%', padding: '10px 14px', borderRadius: style.align === 'flex-end' ? '16px 16px 4px 16px' : '16px 16px 16px 4px', background: style.bg, color: '#fff', fontSize: 13, lineHeight: 1.5, border: style.border }}>{m.content}</div>
+<div style={{ fontSize: 10, color: '#6b7280', marginTop: 3, paddingLeft: 4, paddingRight: 4 }}>{new Date(m.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · {style.label}</div>
 </div>
-))
+)
+})
 )}
+</div>
+{/* Input atendente */}
+<div style={{ padding: '12px 14px', borderTop: '1px solid #222', background: '#0d1a12', flexShrink: 0 }}>
+<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+<UserCheck size={13} color="#059669" />
+<span style={{ fontSize: 11, color: '#059669', fontWeight: 700 }}>Responder como Atendente</span>
+</div>
+<div style={{ display: 'flex', gap: 8 }}>
+<input
+ref={atendenteInputRef}
+value={atendenteInput}
+onChange={e => setAtendenteInput(e.target.value)}
+onKeyDown={e => e.key === 'Enter' && !e.shiftKey && enviarMensagemAtendente()}
+placeholder="Digite sua resposta para o cliente..."
+style={{ flex: 1, background: '#111', border: '1px solid #1a3a22', borderRadius: 20, padding: '9px 14px', color: '#fff', fontSize: 13, outline: 'none', fontFamily: 'Mulish, sans-serif' }}
+/>
+<button
+onClick={enviarMensagemAtendente}
+disabled={enviandoAtendente || !atendenteInput.trim()}
+style={{ width: 38, height: 38, borderRadius: '50%', background: enviandoAtendente || !atendenteInput.trim() ? '#1a3a22' : '#059669', border: 'none', cursor: enviandoAtendente || !atendenteInput.trim() ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 0.2s' }}
+>
+<Send size={15} color="#fff" />
+</button>
+</div>
 </div>
 </div>
 )}
