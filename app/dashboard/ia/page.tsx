@@ -2,7 +2,7 @@
 import { Suspense, useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { MessageCircle, Send, RefreshCw, Users, TrendingUp, Clock, Bot, Zap, Star, AlertCircle } from 'lucide-react'
+import { MessageCircle, Send, RefreshCw, Users, TrendingUp, Clock, Bot, Zap, Star, AlertCircle, X } from 'lucide-react'
 
 type Conversa = {
   telefone: string
@@ -16,6 +16,12 @@ type MensagemChat = {
   content: string
 }
 
+type MensagemHistorico = {
+  role: 'user' | 'assistant'
+  content: string
+  criado_em: string
+}
+
 function IAContent() {
   const searchParams = useSearchParams()
   const slug = searchParams.get('slug') || ''
@@ -27,12 +33,16 @@ function IAContent() {
   const [abaAtiva, setAbaAtiva] = useState<'painel'|'teste'>('painel')
 
   const [testeMensagens, setTesteMensagens] = useState<MensagemChat[]>([
-    { role: 'assistant', content: 'Ola! Sou a MEL. Este e o modo de teste â experimente conversar comigo como se fosse um cliente! :)' }
+    { role: 'assistant', content: 'Ola! Sou a MEL. Este e o modo de teste Ã¢ÂÂ experimente conversar comigo como se fosse um cliente! :)' }
   ])
   const [testeInput, setTesteInput] = useState('')
   const [testeCarregando, setTesteCarregando] = useState(false)
   const [testeSessionId] = useState(() => 'teste_' + Date.now())
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const [conversaAberta, setConversaAberta] = useState<Conversa | null>(null)
+  const [mensagensConversa, setMensagensConversa] = useState<MensagemHistorico[]>([])
+  const [loadingMensagens, setLoadingMensagens] = useState(false)
+  const painelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     async function carregarEstab() {
@@ -136,6 +146,20 @@ function IAContent() {
     return { label: 'WhatsApp', cor: '#25d366' }
   }
 
+  const abrirConversa = async (conversa: Conversa) => {
+    setConversaAberta(conversa)
+    setLoadingMensagens(true)
+    const { data } = await supabase
+      .from('conversas_ia')
+      .select('role, content, criado_em')
+      .eq('estabelecimento_id', estabelecimentoId!)
+      .eq('telefone', conversa.telefone)
+      .order('criado_em', { ascending: true })
+    setMensagensConversa(data || [])
+    setLoadingMensagens(false)
+    setTimeout(() => painelRef.current?.scrollTo({ top: 99999, behavior: 'smooth' }), 100)
+  }
+
   const formatarTempo = (iso: string) => {
     const d = new Date(iso)
     const now = new Date()
@@ -155,7 +179,7 @@ function IAContent() {
           </div>
           <div>
             <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>Inteligencia Artificial</h1>
-            <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>MEL â Assistente virtual powered by Claude AI</p>
+            <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>MEL Ã¢ÂÂ Assistente virtual powered by Claude AI</p>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -212,7 +236,7 @@ function IAContent() {
           ) : (
             <div>
               {conversas.map((c, i) => (
-                <div key={i} style={{ padding: '14px 20px', borderBottom: '1px solid #222', display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div key={i} onClick={() => abrirConversa(c)} style={{ padding: '14px 20px', borderBottom: '1px solid #222', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', transition: 'background 0.15s' }} onMouseEnter={e => (e.currentTarget.style.background='#222')} onMouseLeave={e => (e.currentTarget.style.background='transparent')}>
                   <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#292929', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <Users size={16} color="#6b7280" />
                   </div>
@@ -247,7 +271,7 @@ function IAContent() {
           <div style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 480 }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid #292929', display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981' }} />
-              <span style={{ fontWeight: 700, fontSize: 14 }}>Chat de Teste â MEL</span>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>Chat de Teste Ã¢ÂÂ MEL</span>
               <span style={{ fontSize: 12, color: '#6b7280', marginLeft: 4 }}>Simule a experiencia do cliente</span>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -293,6 +317,53 @@ function IAContent() {
               </div>
               <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', lineHeight: 1.6 }}>A MEL e uma IA treinada para o seu negocio. Ela conhece o cardapio, precos e pode registrar pedidos automaticamente no Supabase em tempo real.</p>
             </div>
+          </div>
+        </div>
+      )}
+    </div>
+
+      {/* PAINEL LATERAL DE CONVERSA */}
+      {conversaAberta && (
+        <div style={{ position: 'fixed', top: 0, right: 0, width: 420, height: '100vh', background: '#111', borderLeft: '1px solid #292929', zIndex: 1000, display: 'flex', flexDirection: 'column', boxShadow: '-4px 0 24px rgba(0,0,0,0.5)' }}>
+          {/* Header do painel */}
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid #292929', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#1a1a1a' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#292929', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Users size={16} color="#9ca3af" />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>{formatarTelefone(conversaAberta.telefone)}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                  <div style={{ background: getCanalTelefone(conversaAberta.telefone).cor + '22', borderRadius: 20, padding: '1px 8px', fontSize: 11, color: getCanalTelefone(conversaAberta.telefone).cor, fontWeight: 600 }}>
+                    {getCanalTelefone(conversaAberta.telefone).label}
+                  </div>
+                  <span style={{ fontSize: 11, color: '#6b7280' }}>{conversaAberta.total_mensagens} mensagens</span>
+                </div>
+              </div>
+            </div>
+            <button onClick={() => setConversaAberta(null)} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', padding: 6, borderRadius: 8 }}>
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Mensagens */}
+          <div ref={painelRef} style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {loadingMensagens ? (
+              <div style={{ textAlign: 'center', color: '#6b7280', marginTop: 40, fontSize: 13 }}>Carregando mensagens...</div>
+            ) : mensagensConversa.length === 0 ? (
+              <div style={{ textAlign: 'center', color: '#6b7280', marginTop: 40, fontSize: 13 }}>Nenhuma mensagem encontrada</div>
+            ) : (
+              mensagensConversa.map((m, i) => (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                  <div style={{ maxWidth: '82%', padding: '10px 14px', borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px', background: m.role === 'user' ? '#ef4239' : '#1e1e1e', color: '#fff', fontSize: 13, lineHeight: 1.5, border: m.role === 'assistant' ? '1px solid #292929' : 'none' }}>
+                    {m.content}
+                  </div>
+                  <div style={{ fontSize: 10, color: '#6b7280', marginTop: 3, paddingLeft: 4, paddingRight: 4 }}>
+                    {new Date(m.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · {m.role === 'user' ? 'Cliente' : 'MEL'}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
