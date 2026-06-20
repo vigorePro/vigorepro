@@ -112,7 +112,7 @@ function SidebarContent() {
                       background: '#ef4239', display: 'flex', alignItems: 'center',
                       justifyContent: 'center', color: '#fff', fontWeight: '800',
                       fontSize: '14px', fontFamily: 'Mulish, sans-serif'
-        }}>VP</div>div>
+        }}>VP</div>
                                 <div>
                                             <div style={{ fontSize: '14px', fontWeight: '700', color: '#fff', fontFamily: 'Mulish, sans-serif' }}>{nomeEstab}</div>div>
                                             <div style={{ fontSize: '11px', color: '#888', fontFamily: 'Mulish, sans-serif' }}>{slug}</div>div>
@@ -218,4 +218,3 @@ export default function DashboardLayout({
                 </main>main>
           </div>div>
         )
-}</>
