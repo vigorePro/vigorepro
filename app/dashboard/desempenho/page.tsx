@@ -11,7 +11,7 @@ import {
 
 interface PedidoData {
   id: string
-  total: number
+  valor_total: number
   created_at: string
   status: string
   forma_pagamento: string
@@ -52,7 +52,7 @@ function DesempenhoContent() {
     const dateStr = dateFilter.toISOString()
 
     const [pedidosRes, itensRes] = await Promise.all([
-      supabase.from('pedidos').select('id, total, created_at, status, forma_pagamento, cliente_nome, tipo')
+      supabase.from('pedidos').select('id, valor_total, created_at, status, forma_pagamento, cliente_nome, tipo')
         .eq('estabelecimento_id', estabelecimentoId)
         .gte('created_at', dateStr)
         .not('status', 'in', '(cancelado,recusado)'),
