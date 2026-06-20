@@ -45,6 +45,7 @@ function CardapioContent() {
   const [modalAberto, setModalAberto] = useState(false)
   const [produtoEditando, setProdutoEditando] = useState<Partial<Produto>>({})
   const [salvando, setSalvando] = useState(false)
+  const [uploadingImg, setUploadingImg] = useState(false)
   const [estabelecimentoId, setEstabelecimentoId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -341,17 +342,49 @@ function CardapioContent() {
               </div>
               <div>
                 <label style={{ fontSize: '12px', color: '#9ca3af', display: 'block', marginBottom: '6px' }}>Imagem do Produto</label>
+                {produtoEditando.foto_url && (
+                  <div style={{ position: 'relative', marginBottom: '8px' }}>
+                    <img src={produtoEditando.foto_url} alt="preview"
+                      style={{ width: '100%', maxHeight: '150px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #2a2a2a', display: 'block' }} />
+                    <button type="button"
+                      onClick={() => setProdutoEditando(prev => ({ ...prev, foto_url: '' }))}
+                      style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: '50%', width: '24px', height: '24px', color: '#fff', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                  <label style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '9px 12px', background: '#eb0029', color: '#fff', borderRadius: '6px', cursor: uploadingImg ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: '600', opacity: uploadingImg ? 0.7 : 1 }}>
+                    {uploadingImg ? '⏳ Enviando...' : '📁 Selecionar Imagem'}
+                    <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp"
+                      style={{ display: 'none' }}
+                      disabled={uploadingImg}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        setUploadingImg(true)
+                        try {
+                          const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+                          const fname = `produto-${produtoEditando.id || 'novo'}-${Date.now()}.${ext}`
+                          const { error } = await supabase.storage.from('produtos').upload(fname, file, { upsert: true, contentType: file.type })
+                          if (error) throw error
+                          const { data: urlData } = supabase.storage.from('produtos').getPublicUrl(fname)
+                          setProdutoEditando(prev => ({ ...prev, foto_url: urlData.publicUrl }))
+                        } catch (err: any) {
+                          alert('Erro no upload: ' + err.message)
+                        } finally {
+                          setUploadingImg(false)
+                          e.target.value = ''
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
                 <input
                   type="text"
                   value={produtoEditando.foto_url || ''}
                   onChange={e => setProdutoEditando(prev => ({ ...prev, foto_url: e.target.value }))}
-                  style={{ width: '100%', backgroundColor: '#111111', border: '1px solid #2a2a2a', borderRadius: '6px', padding: '8px 12px', color: '#fff', fontSize: '14px', outline: 'none', boxSizing: 'border-box' as any }}
-                  placeholder="https://... (URL da imagem)"
+                  style={{ width: '100%', backgroundColor: '#111111', border: '1px solid #2a2a2a', borderRadius: '6px', padding: '8px 12px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' as any }}
+                  placeholder="Ou cole uma URL de imagem aqui..."
                 />
-                {produtoEditando.foto_url && (
-                  <img src={produtoEditando.foto_url} alt="preview"
-                    style={{ marginTop: '8px', width: '100%', maxHeight: '120px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #2a2a2a' }} />
-                )}
               </div>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#9ca3af' }}>
