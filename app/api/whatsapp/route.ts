@@ -17,11 +17,9 @@ const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID!
 const WHATSAPP_VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN!
 
 // ==========================================
-// MEL HIBRIDA: Rule-Based + Claude Haiku
-// Economia estimada: ~86% vs Sonnet puro
+// MEL HIBRIDA: Rule-Based + Claude Haiku + CRM
 // ==========================================
 
-// Envia mensagem pelo WhatsApp via Meta Cloud API
 async function enviarMensagem(telefone: string, texto: string) {
   const url = `https://graph.facebook.com/v25.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`
   const res = await fetch(url, {
@@ -44,7 +42,6 @@ async function enviarMensagem(telefone: string, texto: string) {
   return res.ok
 }
 
-// Busca historico de conversa do cliente no Supabase
 async function buscarHistorico(telefone: string, estabelecimento_id: string) {
   const { data } = await supabase
     .from('conversas_ia')
@@ -56,13 +53,19 @@ async function buscarHistorico(telefone: string, estabelecimento_id: string) {
   return data || []
 }
 
-// Busca cliente cadastrado
-async function buscarCliente(telefone: string, estabelecimento_id: string) {
-  const formatos = [telefone, `+55${telefone}`, `55${telefone}`]
+// CRM: Busca cliente pelo telefone
+async function buscarClienteCRM(telefone: string, estabelecimento_id: string) {
+  const formatos = [
+    telefone,
+    `+55${telefone}`,
+    `55${telefone}`,
+    telefone.replace(/^55/, ''),
+    telefone.replace(/^\+55/, ''),
+  ]
   for (const fmt of formatos) {
     const { data } = await supabase
-      .from('clientes')
-      .select('nome, telefone')
+      .from('mel_clientes')
+      .select('id, nome, email, telefone, total_pedidos, valor_total_gasto, preferencias')
       .eq('estabelecimento_id', estabelecimento_id)
       .eq('telefone', fmt)
       .maybeSingle()
@@ -71,31 +74,58 @@ async function buscarCliente(telefone: string, estabelecimento_id: string) {
   return null
 }
 
-async function salvarMensagem(telefone: string, estabelecimento_id: string, role: 'user' | 'assistant', content: string) {
-  await supabase.from('conversas_ia').insert({
-    telefone,
-    estabelecimento_id,
-    role,
-    content,
-  })
+// CRM: Cria ou atualiza cliente
+async function salvarClienteCRM(
+  telefone: string,
+  estabelecimento_id: string,
+  nome: string,
+  email?: string
+) {
+  const { data, error } = await supabase
+    .from('mel_clientes')
+    .upsert({
+      telefone,
+      estabelecimento_id,
+      nome,
+      email: email || null,
+      ultimo_contato: new Date().toISOString(),
+      status_cadastro: 'completo',
+    }, { onConflict: 'estabelecimento_id,telefone' })
+    .select('id, nome')
+    .single()
+  if (error) {
+    console.error('[CRM] Erro ao salvar cliente:', error)
+    return null
+  }
+  console.log('[CRM] Cliente salvo:', nome, telefone)
+  return data
 }
 
-// Busca cardapio do estabelecimento
+// CRM: Atualiza ultimo contato
+async function atualizarUltimoContato(telefone: string, estabelecimento_id: string) {
+  await supabase
+    .from('mel_clientes')
+    .update({ ultimo_contato: new Date().toISOString() })
+    .eq('estabelecimento_id', estabelecimento_id)
+    .eq('telefone', telefone)
+}
+
+async function salvarMensagem(telefone: string, estabelecimento_id: string, role: 'user' | 'assistant', content: string) {
+  await supabase.from('conversas_ia').insert({ telefone, estabelecimento_id, role, content })
+}
+
 async function buscarCardapio(estabelecimento_id: string) {
   const { data: categorias } = await supabase
     .from('categorias')
     .select('id, nome')
     .eq('estabelecimento_id', estabelecimento_id)
     .order('ordem')
-
   const { data: produtos } = await supabase
     .from('produtos')
     .select('nome, descricao, preco, categoria_id, disponivel')
     .eq('estabelecimento_id', estabelecimento_id)
     .eq('disponivel', true)
-
   if (!categorias || !produtos) return 'Cardapio indisponivel no momento.'
-
   let texto = ''
   for (const cat of categorias) {
     const itens = produtos.filter((p) => p.categoria_id === cat.id)
@@ -110,49 +140,31 @@ async function buscarCardapio(estabelecimento_id: string) {
   return texto.trim()
 }
 
-// ==========================================
-// PASSO 1: Tenta responder com template rule-based (GRATIS, instantaneo)
-// Retorna resposta se encontrar match, null caso contrario
-// ==========================================
-async function tentarRespostaPorTemplate(
-  mensagem: string,
-  estabelecimento_id: string
-): Promise<string | null> {
+// PASSO 1: Template rule-based (GRATIS)
+async function tentarRespostaPorTemplate(mensagem: string, estabelecimento_id: string): Promise<string | null> {
   const { data: templates } = await supabase
     .from('mel_templates')
     .select('trigger_keywords, response_text, prioridade')
     .eq('estabelecimento_id', estabelecimento_id)
     .eq('ativo', true)
     .order('prioridade', { ascending: false })
-
   if (!templates || templates.length === 0) return null
-
   const msg = mensagem.toLowerCase().trim()
-
   for (const template of templates) {
     const match = template.trigger_keywords.some((keyword: string) => {
       const kw = keyword.toLowerCase().trim()
-      // Match exato, inicio da frase, ou mensagem contem a keyword
       return msg === kw || msg.startsWith(kw) || msg.includes(kw)
     })
-
     if (match) {
-      console.log('[MEL] Template match! Respondendo sem IA - economia de custo')
+      console.log('[MEL] Template match! Respondendo sem IA')
       return template.response_text
     }
   }
-
   return null
 }
 
-// ==========================================
-// PASSO 2: Registra metrica de uso
-// ==========================================
-async function registrarMetrica(
-  estabelecimento_id: string,
-  usouTemplate: boolean,
-  custoUsd: number = 0
-) {
+// PASSO 2: Registra metrica
+async function registrarMetrica(estabelecimento_id: string, usouTemplate: boolean, custoUsd: number = 0) {
   try {
     const hoje = new Date().toISOString().split('T')[0]
     const { data: existente } = await supabase
@@ -161,22 +173,16 @@ async function registrarMetrica(
       .eq('estabelecimento_id', estabelecimento_id)
       .eq('data', hoje)
       .maybeSingle()
-
     if (existente) {
-      await supabase
-        .from('mel_metricas')
-        .update({
-          total_mensagens: existente.total_mensagens + 1,
-          respostas_template: existente.respostas_template + (usouTemplate ? 1 : 0),
-          respostas_ia: existente.respostas_ia + (usouTemplate ? 0 : 1),
-          custo_estimado_usd: existente.custo_estimado_usd + custoUsd,
-        })
-        .eq('id', existente.id)
+      await supabase.from('mel_metricas').update({
+        total_mensagens: existente.total_mensagens + 1,
+        respostas_template: existente.respostas_template + (usouTemplate ? 1 : 0),
+        respostas_ia: existente.respostas_ia + (usouTemplate ? 0 : 1),
+        custo_estimado_usd: existente.custo_estimado_usd + custoUsd,
+      }).eq('id', existente.id)
     } else {
       await supabase.from('mel_metricas').insert({
-        estabelecimento_id,
-        data: hoje,
-        total_mensagens: 1,
+        estabelecimento_id, data: hoje, total_mensagens: 1,
         respostas_template: usouTemplate ? 1 : 0,
         respostas_ia: usouTemplate ? 0 : 1,
         custo_estimado_usd: custoUsd,
@@ -187,10 +193,7 @@ async function registrarMetrica(
   }
 }
 
-// ==========================================
-// PASSO 3: Processa com Claude Haiku (fallback - ~14x mais barato que Sonnet)
-// So executa quando nenhum template faz match
-// ==========================================
+// PASSO 3: Claude Haiku com CRM integrado
 async function processarComIA(
   mensagem: string,
   historico: Array<{ role: string; content: string }>,
@@ -198,87 +201,67 @@ async function processarComIA(
   estabelecimento: { nome: string; slug: string; endereco: string },
   telefone: string,
   estabelecimento_id: string,
-  clienteExistente: { nome: string; telefone: string } | null
+  clienteCRM: { id?: string; nome?: string; total_pedidos?: number; valor_total_gasto?: number; preferencias?: string } | null
 ): Promise<string> {
-  const systemPrompt = `Voce e a MEL, a atendente virtual da Dolce & Dolce Confeitaria e Padaria.
-Voce e simpatica, acolhedora, eficiente e fala de forma informal e proxima, como uma amiga que conhece bem o cardapio.
-Voce responde rapidamente, usa emojis com moderacao e sempre agradece o cliente ao final do atendimento.
-Ao iniciar um atendimento, apresente-se pelo nome: "Meu nome e MEL e vou continuar seu atendimento :)"
+
+  let infoCRM = ''
+  if (clienteCRM?.nome) {
+    const pedidosStr = clienteCRM.total_pedidos && clienteCRM.total_pedidos > 0
+      ? `Ela ja fez ${clienteCRM.total_pedidos} pedido(s). Valor total gasto: R$ ${(clienteCRM.valor_total_gasto || 0).toFixed(2)}.`
+      : 'E a primeira vez que ela pede.'
+    infoCRM = `CLIENTE CADASTRADA NO CRM:
+Nome: ${clienteCRM.nome}
+${pedidosStr}
+${clienteCRM.preferencias ? `Preferencias: ${clienteCRM.preferencias}` : ''}
+IMPORTANTE: Chame pelo nome. NAO peca o nome novamente.`
+  } else {
+    infoCRM = `CLIENTE NOVA - nao cadastrada no CRM.
+Apos se apresentar, peca o nome educadamente: "Como posso te chamar? :)"
+Quando ela informar o nome, use na conversa e inclua ao final da sua resposta (sera removido antes de enviar):
+SALVAR_CLIENTE:{"nome":"Nome Informado"}`
+  }
+
+  const systemPrompt = `Voce e a MEL, atendente virtual da Dolce & Dolce Confeitaria e Padaria.
+Simpatica, acolhedora, informal e proxima. Frases curtas. Use ":)" em vez de muitos emojis.
+Ao iniciar: "Meu nome e MEL e vou continuar seu atendimento :)"
+
+${infoCRM}
 
 SOBRE O NEGOCIO:
-Nome: Dolce & Dolce Confeitaria e Padaria
 Endereco: ${estabelecimento.endereco}
-Telefone: (43) 3484-0691
-WhatsApp: (43) 3484-0691
-E-mail: panidolcepaulista@gmail.com
-Funcionamento: ate as 19:30h
-Entrega: Sim, somente em Ivaipora-PR
+Funcionamento: ate as 19:30h | Entrega apenas em Ivaipora-PR
+Contato: (43) 3484-0691 | panidolcepaulista@gmail.com
 
 TAXA DE ENTREGA:
-- Compras ate R$ 50,00: taxa de R$ 10,00
-- Compras de R$ 50,00 a R$ 100,00: taxa de R$ 5,00
-- Compras acima de R$ 100,00: GRATIS
+- Ate R$ 50: taxa R$ 10
+- R$ 50 a R$ 100: taxa R$ 5
+- Acima R$ 100: GRATIS
 
-FORMAS DE PAGAMENTO: PIX (chave: panidolcepaulista@gmail.com), cartao ou dinheiro na retirada/entrega
+PAGAMENTO: PIX (panidolcepaulista@gmail.com), cartao ou dinheiro
 
-CATALOGO DE PRODUTOS:
+CARDAPIO:
 ${cardapio}
 
-INFORMACOES ADICIONAIS SOBRE OS PRODUTOS:
-- Bolos personalizados sao feitos por encomenda com antecedencia (minimo 1 dia). Coletar: sabor, tamanho em kg, tema/decoracao, nome para escrever, data e hora de retirada ou entrega. Sabores mais pedidos: Laka com morango, Kit Kat, Ninho com uva verde, Abacaxi com coco, Banoffe, Red Velvet.
-- Salgados: esfihas, mini hamburguer, cento de salgados mistos, baguete de frango, folhados, nozinhos. Venda por unidade ou por cento.
-- Paes: pao com ovo, pao com queijo e bacon, pao com calabresa, pao frances, pao frances integral, pao de forma integral. 40 paes = R$ 21,00.
-- Pudim: R$ 33,90 o kg, pesando entre 500g e 700g por unidade. Mini pudim: R$ 6,99 unitario / R$ 6,50 para 100+ unidades.
-- Cesta Media de cafe da manha (17 itens): R$ 139,90
-- Cesta Grande de cafe da manha (30 itens): R$ 189,00
-- Cesta de Aniversario: R$ 129,90
+PRODUTOS ESPECIAIS:
+- Bolos: encomenda com 1 dia de antecedencia. Coletar: sabor, tamanho kg, tema, nome, data/hora.
+- Sabores populares: Laka+morango, Kit Kat, Ninho+uva verde, Abacaxi+coco, Banoffe, Red Velvet.
+- 40 paes = R$ 21,00 | Mini pudim R$ 6,99
 
-FLUXO DE ATENDIMENTO:
-PASSO 1 - Cumprimente e se apresente
-PASSO 2 - Colete informacoes do pedido
-PASSO 3 - Registre internamente
-PASSO 4 - Confirme com o cliente
-PASSO 5 - Mensagem de fechamento
+FLUXO: Cumprimenta -> Coleta pedido -> Confirma -> Finaliza
 
-TOM: Informal, acolhedor, emojis com moderacao, frases curtas
+ESCALAR PARA HUMANO: orcamentos 100+ unidades, reclamacoes, descontos.
+Use: "Deixa eu chamar um atendente :) Um momento!"
 
-SITUACOES PARA ESCALAR PARA HUMANO:
-- Orcamentos corporativos grandes (100+ unidades)
-- Reclamacoes ou insatisfacao
-- Cancelamento proximo a data
-- Personalizacao muito complexa
-- Negociacao de descontos
-Use: "Deixa eu chamar um de nossos atendentes :) Um momento!"
+CONFIRMAR PEDIDO (formato exato, nada antes ou depois):
+PEDIDO_CONFIRMADO:{"cliente_nome":"nome","itens":[{"nome":"item","preco":29.90,"quantidade":1,"categoria":"cat"}],"valor_total":29.90,"endereco":"endereco ou RETIRADA","tipo_entrega":"delivery ou retirada","observacoes":"opcional"}
 
-INSTRUCOES TECNICAS:
-1. Pergunte o nome se nao souber
-2. Ajude a escolher itens do cardapio
-3. Confirme: itens, quantidades e valor total
-4. Pergunte se e delivery ou retirada
-5. Se delivery: peca endereco completo com referencia
-6. Quando tiver todos os dados, confirme com o cliente
-7. Quando o cliente confirmar, responda EXATAMENTE no formato JSON abaixo (sem texto antes ou depois):
-
-PEDIDO_CONFIRMADO:{"cliente_nome":"nome","itens":[{"nome":"item","preco":29.90,"quantidade":1,"categoria":"nome_da_categoria"}],"valor_total":29.90,"endereco":"endereco ou RETIRADA","tipo_entrega":"delivery ou retirada","observacoes":"opcional"}
-
-8. Nao invente produtos que nao estao no cardapio
-9. Quando o cliente pedir o cardapio: https://dolcedolce.vigorepro.com.br/cardapio?slug=dolcedolce
-10. Mantenha respostas curtas e naturais para WhatsApp
-
-IDENTIFICACAO DO CLIENTE:
-- Telefone: ${telefone}
-- ${clienteExistente ? `CLIENTE CADASTRADO. Nome: ${clienteExistente.nome}. Cumprimente: "Ola, ${clienteExistente.nome}! Como posso ajudar?"` : `CLIENTE NOVO. Apos se apresentar, peca o nome educadamente.`}
-`
+Cardapio online: https://dolcedolce.vigorepro.com.br/cardapio?slug=dolcedolce`
 
   const messages = [
-    ...historico.map((h) => ({
-      role: h.role as 'user' | 'assistant',
-      content: h.content,
-    })),
+    ...historico.map((h) => ({ role: h.role as 'user' | 'assistant', content: h.content })),
     { role: 'user' as const, content: mensagem },
   ]
 
-  // USA CLAUDE HAIKU (nao Sonnet) - ~14x mais barato
   const response = await anthropic.messages.create({
     model: 'claude-haiku-4-5',
     max_tokens: 512,
@@ -286,9 +269,27 @@ IDENTIFICACAO DO CLIENTE:
     messages,
   })
 
-  const resposta = response.content[0].type === 'text' ? response.content[0].text : ''
+  let resposta = response.content[0].type === 'text' ? response.content[0].text : ''
 
-  // Verifica se a IA quer registrar um pedido
+  // Salva cliente novo automaticamente quando IA coleta o nome
+  if (resposta.includes('SALVAR_CLIENTE:')) {
+    try {
+      const match = resposta.match(/SALVAR_CLIENTE:({[^}]+})/)
+      if (match) {
+        const dados = JSON.parse(match[1])
+        if (dados.nome) {
+          await salvarClienteCRM(telefone, estabelecimento_id, dados.nome)
+          console.log('[CRM] Novo cliente salvo:', dados.nome)
+        }
+      }
+    } catch (e) {
+      console.error('[CRM] Erro ao salvar cliente:', e)
+    }
+    resposta = resposta.replace(/SALVAR_CLIENTE:{[^}]+}/, '').trim()
+    return resposta
+  }
+
+  // Registra pedido confirmado
   if (resposta.includes('PEDIDO_CONFIRMADO:')) {
     try {
       const jsonStr = resposta.replace('PEDIDO_CONFIRMADO:', '').trim()
@@ -303,7 +304,6 @@ IDENTIFICACAO DO CLIENTE:
         tipo_entrega: dados.tipo_entrega,
         observacoes: dados.observacoes || '',
       })
-
       try {
         await registrarCRM({
           estabelecimento_id,
@@ -312,11 +312,20 @@ IDENTIFICACAO DO CLIENTE:
           itens: dados.itens,
           valor_total: dados.valor_total,
         })
+        // Incrementa stats no mel_clientes
+        const clienteAtual = await buscarClienteCRM(telefone, estabelecimento_id)
+        if (clienteAtual?.id) {
+          await supabase.from('mel_clientes').update({
+            total_pedidos: (clienteAtual.total_pedidos || 0) + 1,
+            valor_total_gasto: (clienteAtual.valor_total_gasto || 0) + dados.valor_total,
+            ultimo_contato: new Date().toISOString(),
+          }).eq('id', clienteAtual.id)
+        }
       } catch (crmErr) {
-        console.error('Erro ao registrar CRM:', crmErr)
+        console.error('Erro CRM pos-pedido:', crmErr)
       }
-
-      return `Pedido #${numeroPedido} registrado com sucesso! Voce receberá atualizacoes aqui quando seu pedido estiver pronto. Obrigado!`
+      const nomeCliente = clienteCRM?.nome || dados.cliente_nome || 'cliente'
+      return `Pedido #${numeroPedido} registrado! Voce receberá uma mensagem quando ficar pronto. Obrigado, ${nomeCliente}! :)`
     } catch (e) {
       console.error('Erro ao criar pedido:', e)
       return 'Houve um erro ao registrar seu pedido. Pode repetir a confirmacao?'
@@ -326,113 +335,105 @@ IDENTIFICACAO DO CLIENTE:
   return resposta
 }
 
-// GET - Verificacao do webhook pela Meta
+// GET - Verificacao do webhook
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const mode = searchParams.get('hub.mode')
   const token = searchParams.get('hub.verify_token')
   const challenge = searchParams.get('hub.challenge')
-
   if (mode === 'subscribe' && token === WHATSAPP_VERIFY_TOKEN) {
     console.log('Webhook verificado com sucesso pela Meta')
     return new NextResponse(challenge, { status: 200 })
   }
-
   return NextResponse.json({ error: 'Token invalido' }, { status: 403 })
 }
 
-// POST - Recebe mensagens da Meta Cloud API
+// POST - Recebe mensagens
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-
-    if (body.object !== 'whatsapp_business_account') {
-      return NextResponse.json({ ok: true })
-    }
+    if (body.object !== 'whatsapp_business_account') return NextResponse.json({ ok: true })
 
     const entry = body.entry?.[0]
     const changes = entry?.changes?.[0]
     const value = changes?.value
-
-    if (!value?.messages) {
-      return NextResponse.json({ ok: true })
-    }
+    if (!value?.messages) return NextResponse.json({ ok: true })
 
     const message = value.messages[0]
     const contact = value.contacts?.[0]
-
-    if (message.type !== 'text') {
-      return NextResponse.json({ ok: true })
-    }
+    if (message.type !== 'text') return NextResponse.json({ ok: true })
 
     const telefone = message.from
     const mensagem = message.text?.body || ''
     const nomeContato = contact?.profile?.name || ''
-
     if (!telefone || !mensagem) return NextResponse.json({ ok: true })
 
-    const phoneNumberId = value.metadata?.phone_number_id
     console.log('[MEL] Mensagem de:', telefone, '| Texto:', mensagem.substring(0, 50))
-
-    const slug = 'dolcedolce'
 
     const { data: estabelecimento } = await supabase
       .from('estabelecimentos')
       .select('id, nome, slug, endereco')
-      .eq('slug', slug)
+      .eq('slug', 'dolcedolce')
       .single()
 
     if (!estabelecimento) {
-      console.error('[MEL] Estabelecimento nao encontrado:', slug)
+      console.error('[MEL] Estabelecimento nao encontrado')
       return NextResponse.json({ ok: true })
     }
 
     // ==========================================
-    // LOGICA HIBRIDA MEL
-    // 1. Tenta template (GRATIS)
-    // 2. Fallback para Claude Haiku (barato)
+    // CRM: Identifica ou cria cliente pelo numero
     // ==========================================
+    let clienteCRM = await buscarClienteCRM(telefone, estabelecimento.id)
 
-    // Passo 1: Tenta resposta por template
+    if (clienteCRM) {
+      await atualizarUltimoContato(telefone, estabelecimento.id)
+      console.log(`[CRM] Cliente identificado: ${clienteCRM.nome}`)
+    } else if (nomeContato && nomeContato.trim() !== '') {
+      // Cadastra automaticamente pelo nome do perfil WhatsApp
+      await salvarClienteCRM(telefone, estabelecimento.id, nomeContato)
+      clienteCRM = await buscarClienteCRM(telefone, estabelecimento.id)
+      console.log(`[CRM] Novo cliente cadastrado pelo perfil WhatsApp: ${nomeContato}`)
+    } else {
+      console.log(`[CRM] Cliente novo sem nome: ${telefone}`)
+    }
+
+    // PASSO 1: Template (GRATIS)
     const respostaTemplate = await tentarRespostaPorTemplate(mensagem, estabelecimento.id)
-
     if (respostaTemplate) {
-      // Resposta por template - custo ZERO
+      let respostaFinal = respostaTemplate
+      // Personaliza saudacao com nome do cliente cadastrado
+      if (clienteCRM?.nome) {
+        respostaFinal = respostaTemplate
+          .replace('Ola! Tudo bem sim :)', `Ola, ${clienteCRM.nome}! Tudo bem sim :)`)
+          .replace('Ola!', `Ola, ${clienteCRM.nome}!`)
+      }
       await salvarMensagem(telefone, estabelecimento.id, 'user', mensagem)
-      await salvarMensagem(telefone, estabelecimento.id, 'assistant', respostaTemplate)
-      await enviarMensagem(telefone, respostaTemplate)
+      await salvarMensagem(telefone, estabelecimento.id, 'assistant', respostaFinal)
+      await enviarMensagem(telefone, respostaFinal)
       await registrarMetrica(estabelecimento.id, true, 0)
-      console.log('[MEL] Respondido por template - custo: $0.00')
+      console.log('[MEL] Template - custo: $0.00')
       return NextResponse.json({ ok: true })
     }
 
-    // Passo 2: Fallback para Claude Haiku
-    console.log('[MEL] Sem template match - usando Claude Haiku')
-
-    const [cardapio, historico, clienteExistente] = await Promise.all([
+    // PASSO 2: Claude Haiku
+    console.log('[MEL] Sem template - usando Claude Haiku')
+    const [cardapio, historico] = await Promise.all([
       buscarCardapio(estabelecimento.id),
       buscarHistorico(telefone, estabelecimento.id),
-      buscarCliente(telefone, estabelecimento.id),
     ])
 
     await salvarMensagem(telefone, estabelecimento.id, 'user', mensagem)
 
     const resposta = await processarComIA(
-      mensagem,
-      historico,
-      cardapio,
-      estabelecimento,
-      telefone,
-      estabelecimento.id,
-      clienteExistente
+      mensagem, historico, cardapio, estabelecimento,
+      telefone, estabelecimento.id, clienteCRM
     )
 
     await salvarMensagem(telefone, estabelecimento.id, 'assistant', resposta)
     await enviarMensagem(telefone, resposta)
-    
-    // Custo estimado Haiku: ~$0.001 por mensagem
     await registrarMetrica(estabelecimento.id, false, 0.001)
-    console.log('[MEL] Respondido por IA (Haiku) - custo estimado: $0.001')
+    console.log('[MEL] Haiku - custo estimado: $0.001')
 
     return NextResponse.json({ ok: true })
   } catch (error) {
