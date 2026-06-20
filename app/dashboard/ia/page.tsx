@@ -93,6 +93,8 @@ function IAContent() {
   const atendenteInputRef = useRef<HTMLInputElement>(null)
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>(NOTIFS_DEFAULT)
   const [editando, setEditando] = useState<Notificacao | null>(null)
+  const [salvando, setSalvando] = useState(false)
+  const [notifCarregadas, setNotifCarregadas] = useState(false)
 
   useEffect(() => {
     const style = document.createElement('style')
@@ -114,6 +116,22 @@ function IAContent() {
     }
     carregarEstab()
   }, [slug])
+
+  // Carregar notificacoes do Supabase
+  useEffect(() => {
+    if (!estabelecimentoId || notifCarregadas) return
+    fetch('/api/notificacoes?estabelecimento_id=' + estabelecimentoId)
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setNotificacoes(NOTIFS_DEFAULT.map(def => {
+            const salvo = data.find((d: { notif_id: string; mensagem: string; preview: string; ativo: boolean }) => d.notif_id === def.id)
+            return salvo ? { ...def, mensagem: salvo.mensagem, preview: salvo.preview, ativo: salvo.ativo } : def
+          }))
+        }
+        setNotifCarregadas(true)
+      }).catch(() => setNotifCarregadas(true))
+  }, [estabelecimentoId, notifCarregadas])
 
   const fetchDados = useCallback(async () => {
     if (!estabelecimentoId) return
@@ -209,12 +227,24 @@ function IAContent() {
 
   const ativasCount = notificacoes.filter(n => n.ativo).length
 
+  const salvarNotificacoes = async (novas: Notificacao[]) => {
+    if (!estabelecimentoId) return
+    setSalvando(true)
+    try {
+      await fetch('/api/notificacoes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estabelecimento_id: estabelecimentoId, notificacoes: novas })
+      })
+    } finally { setSalvando(false) }
+  }
+
   return (
     <div style={{ padding: '28px 32px', maxWidth: 1100, fontFamily: 'Mulish, sans-serif', color: '#fff' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #ef4239, #ff6b6b)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Bot size={20} color="#fff" /></div>
-          <div><h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>Inteligencia Artificial</h1><p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>MEL — Assistente virtual powered by Claude AI</p></div>
+          <div><h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>Inteligencia Artificial</h1><p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>MEL â Assistente virtual powered by Claude AI</p></div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981' }} />
@@ -273,11 +303,15 @@ function IAContent() {
           <div style={{ padding: '16px 20px', borderBottom: '1px solid #292929', display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 42, height: 42, borderRadius: 10, background: '#292929', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Bell size={20} color="#9ca3af" /></div>
             <div style={{ flex: 1 }}><div style={{ fontWeight: 700, fontSize: 15, color: '#fff' }}>{nomeEstab}</div><div style={{ fontSize: 13, color: '#6b7280' }}>{ativasCount} de {notificacoes.length} notificacoes ativas</div></div>
-            <div style={{ background: '#ef4239', color: '#fff', borderRadius: 20, padding: '4px 14px', fontSize: 13, fontWeight: 700 }}>{ativasCount}/{notificacoes.length}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {salvando && <span style={{ fontSize: 11, color: '#6b7280' }}>Salvando...</span>}
+              {!salvando && notifCarregadas && <span style={{ fontSize: 11, color: '#22c55e' }}>✓ Salvo</span>}
+              <div style={{ background: '#ef4239', color: '#fff', borderRadius: 20, padding: '4px 14px', fontSize: 13, fontWeight: 700 }}>{ativasCount}/{notificacoes.length}</div>
+            </div>
           </div>
           {notificacoes.map(n => (
             <div key={n.id} style={{ padding: '16px 20px', borderBottom: '1px solid #222', display: 'flex', alignItems: 'center', gap: 16 }}>
-              <Toggle ativo={n.ativo} onChange={() => setNotificacoes(prev => prev.map(x => x.id === n.id ? { ...x, ativo: !x.ativo } : x))} />
+              <Toggle ativo={n.ativo} onChange={() => { const novas = notificacoes.map(x => x.id === n.id ? { ...x, ativo: !x.ativo } : x); setNotificacoes(novas); salvarNotificacoes(novas) }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
                   <span style={{ background: '#111', border: '1px solid #333', borderRadius: 20, padding: '2px 12px', fontSize: 12, color: '#e6e6e6', fontWeight: 600 }}>{n.gatilho}</span>
@@ -295,7 +329,7 @@ function IAContent() {
           <div style={{ background: '#1a1a1a', border: '1px solid #292929', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 480 }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid #292929', display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981' }} />
-              <span style={{ fontWeight: 700, fontSize: 14 }}>Chat de Teste — MEL</span>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>Chat de Teste â MEL</span>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
               {testeMensagens.map((m, i) => (
@@ -351,7 +385,7 @@ function IAContent() {
               const s = bubbleStyle(m.role)
               return (<div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: s.align }}>
                 <div style={{ maxWidth: '82%', padding: '10px 14px', borderRadius: s.align === 'flex-end' ? '16px 16px 4px 16px' : '16px 16px 16px 4px', background: s.bg, color: '#fff', fontSize: 13, lineHeight: 1.5, border: s.border }}>{m.content}</div>
-                <div style={{ fontSize: 10, color: '#6b7280', marginTop: 3 }}>{new Date(m.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · {s.label}</div>
+                <div style={{ fontSize: 10, color: '#6b7280', marginTop: 3 }}>{new Date(m.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} Â· {s.label}</div>
               </div>)
             })}
           </div>
@@ -364,7 +398,7 @@ function IAContent() {
           </div>
         </div>
       )}
-      {editando && <ModalEdicao notif={editando} onClose={() => setEditando(null)} onSave={(id, msg) => setNotificacoes(prev => prev.map(n => n.id === id ? { ...n, mensagem: msg, preview: msg.substring(0, 80) + (msg.length > 80 ? '...' : '') } : n))} />}
+      {editando && <ModalEdicao notif={editando} onClose={() => setEditando(null)} onSave={(id, msg) => { const novas = notificacoes.map(n => n.id === id ? { ...n, mensagem: msg, preview: msg.substring(0, 80) + (msg.length > 80 ? '...' : '') } : n); setNotificacoes(novas); salvarNotificacoes(novas) }} />}
     </div>
   )
 }
