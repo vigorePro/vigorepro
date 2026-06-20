@@ -81,7 +81,7 @@ function DesempenhoContent() {
   }, [estabelecimentoId, fetchData])
 
   // Calculos
-  const totalReceita = pedidos.reduce((acc, p) => acc + Number(p.total), 0)
+  const totalReceita = pedidos.reduce((acc, p) => acc + Number(p.valor_total), 0)
   const totalPedidos = pedidos.length
   const ticketMedio = totalPedidos > 0 ? totalReceita / totalPedidos : 0
   const clientesUnicos = new Set(pedidos.filter(p => p.cliente_nome).map(p => p.cliente_nome)).size
@@ -131,7 +131,7 @@ function DesempenhoContent() {
   }
   pedidos.forEach(p => {
     const key = new Date(p.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-    if (key in diasLabels) diasLabels[key] += Number(p.total)
+    if (key in diasLabels) diasLabels[key] += Number(p.valor_total)
   })
   const diasData = Object.entries(diasLabels)
   const maxDia = Math.max(...diasData.map(([, v]) => v), 1)
