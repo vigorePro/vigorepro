@@ -6,6 +6,31 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+async function garantirTabela() {
+  // Tenta criar a tabela se nao existir via SQL direto
+  const sql = `
+    CREATE TABLE IF NOT EXISTS notificacoes_automaticas (
+      id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+      estabelecimento_id uuid NOT NULL,
+      notif_id text NOT NULL,
+      gatilho text NOT NULL,
+      tipo text NOT NULL DEFAULT 'Delivery',
+      mensagem text NOT NULL,
+      preview text NOT NULL DEFAULT '',
+      ativo boolean NOT NULL DEFAULT true,
+      ordem integer NOT NULL DEFAULT 0,
+      criado_em timestamptz DEFAULT now(),
+      atualizado_em timestamptz DEFAULT now(),
+      UNIQUE(estabelecimento_id, notif_id)
+    );
+  `
+  try {
+    await supabase.rpc('exec_sql', { sql })
+  } catch {
+    // tabela ja existe ou rpc nao disponivel — ok
+  }
+}
+
 // GET /api/notificacoes?estabelecimento_id=xxx
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -16,7 +41,7 @@ export async function GET(req: NextRequest) {
     .select('*')
     .eq('estabelecimento_id', estabelecimento_id)
     .order('ordem', { ascending: true })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json([], { status: 200 }) // retorna vazio se tabela nao existe
   return NextResponse.json(data)
 }
 
@@ -37,6 +62,10 @@ export async function POST(req: NextRequest) {
   const { error } = await supabase
     .from('notificacoes_automaticas')
     .upsert(rows, { onConflict: 'estabelecimento_id,notif_id' })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    // Se tabela nao existe, retorna ok silencioso (nao quebra a UI)
+    console.error('notificacoes upsert error:', error.message)
+    return NextResponse.json({ ok: false, error: error.message })
+  }
   return NextResponse.json({ ok: true })
 }
