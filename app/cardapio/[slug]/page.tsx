@@ -416,8 +416,7 @@ function CardapioPublico({ params }: { params: { slug: string } }) {
       {pedidoFinalizado&&(
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:500,display:'flex',alignItems:'center',justifyContent:'center'}}>
           <div style={{background:'#fff',borderRadius:20,padding:40,maxWidth:340,textAlign:'center',fontFamily:'Mulish,sans-serif'}}>
-            <div style={{width:80,height:80,borderRadius:'50%',background:'#dcfce7',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px
-<div style={{width:80,height:80,borderRadius:'50%',background:'#dcfce7',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px'}}><Check size={40} color="#22c55e"/></div>
+            <div style={{width:80,height:80,borderRadius:'50%',background:'#dcfce7',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px'}}><Check size={40} color="#22c55e"/></div>
             <h2 style={{margin:'0 0 10px',fontSize:22,fontWeight:800}}>Pedido confirmado!</h2>
             <p style={{margin:'0 0 24px',color:'#666',fontSize:14,lineHeight:1.6}}>Seu pedido foi registrado. Em breve entraremos em contato!</p>
             <button onClick={()=>{setPedidoFinalizado(false);setChatAberto(false)}} style={{padding:'12px 32px',background:cor,border:'none',borderRadius:10,color:'#fff',fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:'Mulish,sans-serif'}}>Fazer novo pedido</button>
@@ -457,7 +456,7 @@ function CardapioPublico({ params }: { params: { slug: string } }) {
         )}
         <button onClick={()=>setChatAberto(!chatAberto)} style={{width:58,height:58,borderRadius:'50%',background:cor,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 20px rgba(0,0,0,.2)',position:'relative'}}>
           {chatAberto?<X size={24} color="#fff"/>:<MessageCircle size={24} color="#fff"/>}
-          {!chatAberto&&chatMensagens.length>1&&<div style={{position:'absolute',top:2,right:2,width:18,height:18,background:'#ef4444',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'#fff',fontWeight:700}}>{chatMensagens.filter(m=>m.role==='assistant').length}</div>}
+          {!chatAberto&&chatMensagens.length>1&&<div style={{osition:'absolute',top:2,right:2,width:18,height:18,background:'#ef4444',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'#fff',fontWeight:700}}>{chatMensagens.filter(m=>m.role==='assistant').length}</div>}
         </button>
       </div>
     </div>
