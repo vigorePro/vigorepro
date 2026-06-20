@@ -417,3 +417,53 @@ function CardapioPublico({ params }: { params: { slug: string } }) {
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:500,display:'flex',alignItems:'center',justifyContent:'center'}}>
           <div style={{background:'#fff',borderRadius:20,padding:40,maxWidth:340,textAlign:'center',fontFamily:'Mulish,sans-serif'}}>
             <div style={{width:80,height:80,borderRadius:'50%',background:'#dcfce7',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px
+<div style={{width:80,height:80,borderRadius:'50%',background:'#dcfce7',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px'}}><Check size={40} color="#22c55e"/></div>
+            <h2 style={{margin:'0 0 10px',fontSize:22,fontWeight:800}}>Pedido confirmado!</h2>
+            <p style={{margin:'0 0 24px',color:'#666',fontSize:14,lineHeight:1.6}}>Seu pedido foi registrado. Em breve entraremos em contato!</p>
+            <button onClick={()=>{setPedidoFinalizado(false);setChatAberto(false)}} style={{padding:'12px 32px',background:cor,border:'none',borderRadius:10,color:'#fff',fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:'Mulish,sans-serif'}}>Fazer novo pedido</button>
+          </div>
+        </div>
+      )}
+
+      {/* CHAT MEL */}
+      <div style={{position:'fixed',bottom:24,right:20,zIndex:999,fontFamily:'Mulish,sans-serif'}}>
+        {chatAberto&&(
+          <div style={{position:'absolute',bottom:72,right:0,width:340,height:480,background:'#fff',borderRadius:16,boxShadow:'0 8px 32px rgba(0,0,0,.18)',display:'flex',flexDirection:'column',overflow:'hidden',border:'1px solid #eee'}}>
+            <div style={{background:cor,padding:'14px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{width:36,height:36,borderRadius:'50%',background:'rgba(255,255,255,.25)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#fff',fontSize:15}}>M</div>
+                <div>
+                  <div style={{color:'#fff',fontWeight:700,fontSize:14}}>MEL — Assistente IA</div>
+                  <div style={{color:'rgba(255,255,255,.8)',fontSize:11}}>Online agora</div>
+                </div>
+              </div>
+              <button onClick={()=>setChatAberto(false)} style={{background:'none',border:'none',color:'#fff',cursor:'pointer'}}><X size={18}/></button>
+            </div>
+            <div style={{flex:1,overflowY:'auto',padding:14,display:'flex',flexDirection:'column',gap:10}}>
+              {chatMensagens.map((m,i)=>(
+                <div key={i} style={{display:'flex',justifyContent:m.role==='user'?'flex-end':'flex-start',gap:8,alignItems:'flex-end'}}>
+                  {m.role==='assistant'&&<div style={{width:28,height:28,borderRadius:'50%',background:cor,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:11,fontWeight:800,flexShrink:0}}>M</div>}
+                  <div style={{maxWidth:'78%',padding:'9px 13px',borderRadius:m.role==='user'?'14px 14px 2px 14px':'14px 14px 14px 2px',background:m.role==='user'?cor:'#f3f4f6',color:m.role==='user'?'#fff':'#111',fontSize:13,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{m.content}</div>
+                </div>
+              ))}
+              {chatCarregando&&<div style={{display:'flex',gap:8,alignItems:'flex-end'}}><div style={{width:28,height:28,borderRadius:'50%',background:cor,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:11,fontWeight:800}}>M</div><div style={{background:'#f3f4f6',borderRadius:'14px 14px 14px 2px',padding:'10px 16px',fontSize:18,color:'#999'}}>...</div></div>}
+              <div ref={chatEndRef}/>
+            </div>
+            <div style={{padding:'10px 12px',borderTop:'1px solid #f0f0f0',display:'flex',gap:8,flexShrink:0}}>
+              <input value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&enviarMensagemChat()} placeholder="Digite sua mensagem..." style={{flex:1,border:'1px solid #e5e7eb',borderRadius:20,padding:'9px 14px',fontSize:13,outline:'none',fontFamily:'Mulish,sans-serif'}}/>
+              <button onClick={()=>enviarMensagemChat()} disabled={chatCarregando} style={{width:38,height:38,borderRadius:'50%',background:chatCarregando?'#ccc':cor,border:'none',cursor:chatCarregando?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Send size={15} color="#fff"/></button>
+            </div>
+          </div>
+        )}
+        <button onClick={()=>setChatAberto(!chatAberto)} style={{width:58,height:58,borderRadius:'50%',background:cor,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 20px rgba(0,0,0,.2)',position:'relative'}}>
+          {chatAberto?<X size={24} color="#fff"/>:<MessageCircle size={24} color="#fff"/>}
+          {!chatAberto&&chatMensagens.length>1&&<div style={{position:'absolute',top:2,right:2,width:18,height:18,background:'#ef4444',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'#fff',fontWeight:700}}>{chatMensagens.filter(m=>m.role==='assistant').length}</div>}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export default function CardapioPage({ params }: { params: { slug: string } }) {
+  return <CardapioPublico params={params}/>
+}
