@@ -51,12 +51,12 @@ function DashContent() {
 
       const ok = (pA.data||[]).filter((p:any)=>p.status!=='cancelado')
       const okB = (pB.data||[]).filter((p:any)=>p.status!=='cancelado')
-      const rA=ok.reduce((s:number,p:any)=>s+(p.total||0),0)
-      const rB=okB.reduce((s:number,p:any)=>s+(p.total||0),0)
+      const rA=ok.reduce((s:number,p:any)=>s+(p.valor_total||0),0)
+      const rB=okB.reduce((s:number,p:any)=>s+(p.valor_total||0),0)
       const pAn=ok.length, pBn=okB.length
       const tA=pAn>0?rA/pAn:0, tB=pBn>0?rB/pBn:0
       const prep=(pA.data||[]).filter((p:any)=>['recebido','em_preparo','pronto'].includes(p.status)).length
-      const rMes=(pM.data||[]).reduce((s:number,p:any)=>s+(p.total||0),0)
+      const rMes=(pM.data||[]).reduce((s:number,p:any)=>s+(p.valor_total||0),0)
       const del=ok.filter((p:any)=>p.tipo==='delivery').length
       const mesa=ok.filter((p:any)=>p.tipo==='mesa').length
       const bal=ok.filter((p:any)=>!p.tipo||p.tipo==='balcao').length
@@ -67,16 +67,16 @@ function DashContent() {
       if (periodo==='hoje'){
         const hrs:Record<string,number>={}
         for(let h=0;h<24;h++) hrs[h+'h']=0
-        gd.forEach((p:any)=>{const h=new Date(p.criado_em).getHours();hrs[h+'h']=(hrs[h+'h']||0)+(p.total||0)})
+        gd.forEach((p:any)=>{const h=new Date(p.criado_em).getHours();hrs[h+'h']=(hrs[h+'h']||0)+(p.valor_total||0)})
         setGraf(Object.entries(hrs).map(([label,v])=>({label,v})))
       } else if (periodo==='semana'){
         const dias:Record<string,number>={}
         for(let i=6;i>=0;i--){const d=new Date(now);d.setDate(now.getDate()-i);dias[d.toLocaleDateString('pt-BR',{weekday:'short'})]=0}
-        gd.forEach((p:any)=>{const k=new Date(p.criado_em).toLocaleDateString('pt-BR',{weekday:'short'});if(dias[k]!==undefined)dias[k]=(dias[k]||0)+(p.total||0)})
+        gd.forEach((p:any)=>{const k=new Date(p.criado_em).toLocaleDateString('pt-BR',{weekday:'short'});if(dias[k]!==undefined)dias[k]=(dias[k]||0)+(p.valor_total||0)})
         setGraf(Object.entries(dias).map(([label,v])=>({label,v})))
       } else {
         const ss:Record<string,number>={'S1':0,'S2':0,'S3':0,'S4':0}
-        gd.forEach((p:any)=>{const d=new Date(p.criado_em).getDate();const s=d<=7?'S1':d<=14?'S2':d<=21?'S3':'S4';ss[s]=(ss[s]||0)+(p.total||0)})
+        gd.forEach((p:any)=>{const d=new Date(p.criado_em).getDate();const s=d<=7?'S1':d<=14?'S2':d<=21?'S3':'S4';ss[s]=(ss[s]||0)+(p.valor_total||0)})
         setGraf(Object.entries(ss).map(([label,v])=>({label,v})))
       }
       // produtos
@@ -100,13 +100,13 @@ function DashContent() {
   const mg=Math.max(...graf.map(g=>g.v),1)
   const scor:Record<string,string>={recebido:'#3b82f6',em_preparo:'#f59e0b',pronto:'#8b5cf6',entregue:'#22c55e',cancelado:'#ef4444',finalizado:'#22c55e'}
   const slbl:Record<string,string>={recebido:'Recebido',em_preparo:'Em Preparo',pronto:'Pronto',entregue:'Entregue',cancelado:'Cancelado',finalizado:'Finalizado'}
-  const plbl:Record<P,string>={hoje:'Hoje',semana:'Esta Semana',mes:'Este Mês'}
+  const plbl:Record<P,string>={hoje:'Hoje',semana:'Esta Semana',mes:'Este MÃªs'}
 
   const kpis=[
     {lbl:'Receita '+plbl[periodo],val:fm(stats.rA),sub:stats.pA+' pedidos',var:pc(stats.rA,stats.rB),cor:'#22c55e',icon:<DollarSign size={20}/>},
-    {lbl:'Ticket Médio',val:fm(stats.tA),sub:'por pedido',var:pc(stats.tA,stats.tB),cor:'#3b82f6',icon:<TrendingUp size={20}/>},
+    {lbl:'Ticket MÃ©dio',val:fm(stats.tA),sub:'por pedido',var:pc(stats.tA,stats.tB),cor:'#3b82f6',icon:<TrendingUp size={20}/>},
     {lbl:'Em Preparo',val:String(stats.prep),sub:'na cozinha',var:null,cor:'#f59e0b',icon:<ChefHat size={20}/>},
-    {lbl:'Receita do Mês',val:fm(stats.rMes),sub:stats.pMes+' pedidos',var:null,cor:'#8b5cf6',icon:<BarChart3 size={20}/>},
+    {lbl:'Receita do MÃªs',val:fm(stats.rMes),sub:stats.pMes+' pedidos',var:null,cor:'#8b5cf6',icon:<BarChart3 size={20}/>},
     {lbl:'Clientes',val:String(stats.clientes),sub:'cadastrados',var:null,cor:'#ec4899',icon:<Users size={20}/>},
     {lbl:'Mesas Ocupadas',val:String(stats.mesas),sub:'agora',var:null,cor:'#ef4239',icon:<UtensilsCrossed size={20}/>},
   ]
@@ -160,11 +160,11 @@ function DashContent() {
           <div style={{display:'grid',gridTemplateColumns:'1fr 280px',gap:12,marginBottom:20}}>
             <div style={{background:'#1a1a1a',border:'1px solid #292929',borderRadius:12,padding:'18px 20px'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-                <h2 style={{margin:0,fontSize:13,fontWeight:700,color:'#e6e6e6',display:'flex',alignItems:'center',gap:6}}><BarChart3 size={15} color="#ef4239"/> Vendas — {plbl[periodo]}</h2>
+                <h2 style={{margin:0,fontSize:13,fontWeight:700,color:'#e6e6e6',display:'flex',alignItems:'center',gap:6}}><BarChart3 size={15} color="#ef4239"/> Vendas â {plbl[periodo]}</h2>
                 <span style={{fontSize:11,color:'#555'}}>{fm(stats.rA)}</span>
               </div>
               {graf.every(g=>g.v===0) ? (
-                <div style={{height:130,display:'flex',alignItems:'center',justifyContent:'center',color:'#444',fontSize:13}}>Sem vendas no período</div>
+                <div style={{height:130,display:'flex',alignItems:'center',justifyContent:'center',color:'#444',fontSize:13}}>Sem vendas no perÃ­odo</div>
               ) : (
                 <div style={{position:'relative'}}>
                   <svg width="100%" height="110" viewBox={`0 0 ${Math.max(graf.length*50,100)} 110`} preserveAspectRatio="none" style={{display:'block'}}>
@@ -189,7 +189,7 @@ function DashContent() {
               {[
                 {lbl:'Delivery',v:stats.del,cor:'#3b82f6',icon:<Bike size={14}/>},
                 {lbl:'Mesa',v:stats.mesa,cor:'#8b5cf6',icon:<UtensilsCrossed size={14}/>},
-                {lbl:'Balcão',v:stats.bal,cor:'#22c55e',icon:<ShoppingBag size={14}/>},
+                {lbl:'BalcÃ£o',v:stats.bal,cor:'#22c55e',icon:<ShoppingBag size={14}/>},
               ].map((c,i)=>{
                 const tot=stats.del+stats.mesa+stats.bal
                 const pct=tot>0?Math.round((c.v/tot)*100):0
@@ -237,9 +237,9 @@ function DashContent() {
                             <span style={{fontSize:10,padding:'2px 7px',borderRadius:4,background:cor+'22',color:cor,fontWeight:700}}>{slbl[p.status]||p.status}</span>
                             {p.tipo&&<span style={{fontSize:10,color:'#555'}}>{p.tipo}</span>}
                           </div>
-                          <span style={{fontSize:11,color:'#555'}}>{tstr} atrás</span>
+                          <span style={{fontSize:11,color:'#555'}}>{tstr} atrÃ¡s</span>
                         </div>
-                        <span style={{fontSize:14,fontWeight:800,color:'#e6e6e6'}}>{fm(p.total||0)}</span>
+                        <span style={{fontSize:14,fontWeight:800,color:'#e6e6e6'}}>{fm(p.valor_total||0)}</span>
                       </div>
                     )
                   })}
@@ -251,7 +251,7 @@ function DashContent() {
               {prods.length===0?(
                 <div style={{textAlign:'center',padding:'30px 0',color:'#444'}}>
                   <Package size={28} color="#333" style={{display:'block',margin:'0 auto 10px'}}/>
-                  <p style={{margin:0,fontSize:12}}>Sem dados disponíveis</p>
+                  <p style={{margin:0,fontSize:12}}>Sem dados disponÃ­veis</p>
                 </div>
               ):prods.map((p:any,i:number)=>{
                 const pct=Math.round((p.qtd/prods[0].qtd)*100)
