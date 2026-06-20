@@ -21,6 +21,7 @@ type Produto = {
   descricao: string
   preco: number
   imagem_url: string | null
+  foto_url: string | null
   disponivel: boolean
   destaque: boolean
 }
@@ -266,8 +267,8 @@ function CardapioContent() {
                             >
                               <div style={{ display: 'flex', padding: '12px', gap: '10px', alignItems: 'flex-start' }}>
                                 <div style={{ width: '60px', height: '60px', borderRadius: '6px', backgroundColor: '#2a2a2a', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  {produto.imagem_url ? (
-                                    <img src={produto.imagem_url} alt={produto.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  {(produto.foto_url || produto.imagem_url) ? (
+                                    <img src={produto.foto_url || produto.imagem_url || ''} alt={produto.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                   ) : (
                                     <span style={{ fontSize: '12px', color: '#555' }}>#</span>
                                   )}
@@ -337,6 +338,20 @@ function CardapioContent() {
                 <label style={{ fontSize: '12px', color: '#9ca3af', display: 'block', marginBottom: '6px' }}>Descrio</label>
                 <textarea value={produtoEditando.descricao || ''} onChange={e => setProdutoEditando(prev => ({ ...prev, descricao: e.target.value }))}
                   style={{ width: '100%', backgroundColor: '#111111', border: '1px solid #2a2a2a', borderRadius: '6px', padding: '8px 12px', color: '#fff', fontSize: '14px', outline: 'none', resize: 'vertical', minHeight: '80px', boxSizing: 'border-box' as any }} placeholder="Descrio do produto" />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', color: '#9ca3af', display: 'block', marginBottom: '6px' }}>Imagem do Produto</label>
+                <input
+                  type="text"
+                  value={produtoEditando.foto_url || ''}
+                  onChange={e => setProdutoEditando(prev => ({ ...prev, foto_url: e.target.value }))}
+                  style={{ width: '100%', backgroundColor: '#111111', border: '1px solid #2a2a2a', borderRadius: '6px', padding: '8px 12px', color: '#fff', fontSize: '14px', outline: 'none', boxSizing: 'border-box' as any }}
+                  placeholder="https://... (URL da imagem)"
+                />
+                {produtoEditando.foto_url && (
+                  <img src={produtoEditando.foto_url} alt="preview"
+                    style={{ marginTop: '8px', width: '100%', maxHeight: '120px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #2a2a2a' }} />
+                )}
               </div>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#9ca3af' }}>
