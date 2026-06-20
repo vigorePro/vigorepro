@@ -53,6 +53,7 @@ function SidebarContent() {
         { label: 'Pix Online', href: '/dashboard/pix?slug=' + slug, icon: CreditCard },
         { label: 'WhatsApp', href: '/dashboard/whatsapp?slug=' + slug, icon: MessageCircle },
         { label: 'Assistente IA', href: '/dashboard/ia?slug=' + slug, icon: Bot },
+        { label: 'MEL Templates', href: '/dashboard/mel?slug=' + slug, icon: Bot },
         { label: 'Desempenho', href: '/dashboard/desempenho?slug=' + slug, icon: BarChart2 },
       ]
     },
