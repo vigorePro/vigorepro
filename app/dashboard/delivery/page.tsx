@@ -228,11 +228,25 @@ function DeliveryContent() {
   const moverStatus = async (pedidoId: string, novoStatus: string) => {
     await supabase.from('pedidos').update({ status: novoStatus }).eq('id', pedidoId)
     setPedidos(prev => prev.map(p => p.id === pedidoId ? { ...p, status: novoStatus } : p))
+    if (estabelecimentoId) {
+      fetch('/api/notificacoes/disparar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estabelecimento_id: estabelecimentoId, pedido_id: pedidoId, status: novoStatus })
+      }).catch(() => {})
+    }
   }
 
   const cancelarPedido = async (pedidoId: string) => {
     await supabase.from('pedidos').update({ status: 'cancelado' }).eq('id', pedidoId)
     setPedidos(prev => prev.filter(p => p.id !== pedidoId))
+    if (estabelecimentoId) {
+      fetch('/api/notificacoes/disparar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estabelecimento_id: estabelecimentoId, pedido_id: pedidoId, status: 'cancelado' })
+      }).catch(() => {})
+    }
   }
 
   const pedidosFiltrados = pedidos.filter(p =>
