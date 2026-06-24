@@ -27,7 +27,7 @@ function LinksContent() {
     setTimeout(() => setCopiado(null), 2000)
   }
 
-  const cardapioUrl = `https://dolcedolce.vigorepro.com.br/cardapio/${slug}`
+    const cardapioUrl = 'https://www.dolceedolce.com.br/'
   const rastreioUrl = `https://dolcedolce.vigorepro.com.br/pedido/`
 
   const linksFixos = [
