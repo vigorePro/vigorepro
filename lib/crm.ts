@@ -37,7 +37,7 @@ export async function criarPedido(dados: DadosPedido): Promise<number> {
   const { data, error } = await supabase
     .from('pedidos')
     .insert({
-      ...dados,
+      estabelecimento_id: dados.estabelecimento_id,      cliente_nome: dados.cliente_nome,
       status: 'aguardando',
       criado_em: new Date().toISOString(),
     })
@@ -50,17 +50,17 @@ export async function criarPedido(dados: DadosPedido): Promise<number> {
 
 // Registra/atualiza cliente no CRM, incrementa metricas, grava historico e analisa preferencias
 export async function registrarCRM(dados: DadosCRM): Promise<void> {
-  // Upsert do cliente (chave: restaurant_id + telefone)
+  // Upsert do cliente (chave: estabelecimento_id + telefone)
   const { data: cliente, error: cliErr } = await supabase
     .from('clientes')
     .upsert(
       {
-        restaurant_id: dados.estabelecimento_id,
+        estabelecimento_id: dados.estabelecimento_id,
         telefone: dados.cliente_telefone,
         nome: dados.cliente_nome,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: 'restaurant_id,telefone' }
+      { onConflict: 'estabelecimento_id,telefone' }
     )
     .select('id')
     .single()
@@ -79,7 +79,7 @@ export async function registrarCRM(dados: DadosCRM): Promise<void> {
   // Grava no historico de pedidos do CRM
   await supabase.from('pedidos_historico').insert({
     cliente_id: cliente.id,
-    restaurant_id: dados.estabelecimento_id,
+    estabelecimento_id: dados.estabelecimento_id,
     items: dados.itens,
     valor_total: dados.valor_total,
     status: 'criado',
