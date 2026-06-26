@@ -218,7 +218,7 @@ PERGUNTAS FREQUENTES E RESPOSTAS:
 - "Qual o endereco?" -> Avenida Souza Naves, 675, Centro, Ivaipora-PR
 - "Aceita PIX?" -> Sim, aceita PIX (chave: panidolcepaulista@gmail.com), cartao e dinheiro
 - "Tem que pagar antes?" -> O pagamento e na retirada/entrega
-- "Quero ver o cardapio?" -> envie o link: https://dolcedolce.vigorepro.com.br/cardapio/dolcedolce
+- "Quero ver o cardapio?" -> envie o link: https://encomendas.dolceedolce.com.br
 
 SITUACOES PARA ESCALAR PARA HUMANO:
 A MEL deve avisar que vai chamar um atendente humano nas seguintes situacoes:
@@ -265,8 +265,8 @@ ${clienteExistente ?
 }
 
 CARDAPIO DIGITAL:
-- Quando o cliente perguntar sobre produtos, opcoes, precos ou o que voce tem disponivel, SEMPRE envie o link do cardapio digital: https://dolcedolce.vigorepro.com.br/cardapio/dolcedolce
-- Diga algo como: "Aqui esta nosso cardapio completo com todos os produtos e precos: https://dolcedolce.vigorepro.com.br/cardapio/dolcedolce :)"
+- Quando o cliente perguntar sobre produtos, opcoes, precos ou o que voce tem disponivel, SEMPRE envie o link do cardapio digital: https://encomendas.dolceedolce.com.br
+- Diga algo como: "Aqui esta nosso cardapio completo com todos os produtos e precos: https://encomendas.dolceedolce.com.br :)"
 - Voce pode complementar com informacoes especificas do produto que ele perguntou, mas sempre envie o link`
 
     const messages = [
