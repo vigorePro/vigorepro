@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
                       endereco: body.cliente.endereco || '',
                       tipo_entrega: body.tipo_entrega,
                       observacoes: body.observacao_geral || '',
-                      status: 'em_producao',
+                      status: 'confirmado',
                       criado_em: new Date().toISOString(),
             })
             .select('id, numero_pedido')
