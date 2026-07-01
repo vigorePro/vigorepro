@@ -145,7 +145,7 @@ function CozinhaContent() {
                                 </Link>
                                 <h1 className="text-xl font-bold">Cozinha</h1>
                       </div>
-                      <div className="text-gray-400 text-sm">{agora.toLocaleTimeString('pt-BR')}
+                      <div className="text-gray-400 text-sm">{agora.toLocaleTimeString('pt-BR')}</div>
               </div>
               <div className="grid grid-cols-3 gap-4">
                 {colunas.map(coluna => (
@@ -174,7 +174,7 @@ function CozinhaContent() {
                                                                                                                                                               <span className="font-bold text-sm">{'#' + pedido.numero_pedido}</span>
                                                                                                                                                               <span className="text-xs text-gray-400">{tempoDecorrido(pedido.criado_em)}</span>
                                                                                                                                         </div>
-                                                                                                                                      <div className="text-sm text-gray-300 mb-1">{pedido.cliente_nome}
+                                                                                                                                      <div className="text-sm text-gray-300 mb-1">{pedido.cliente_nome}</div>
                                                                                                                   {pedido.tipo_entrega && (
                                                                                                                                           <div className="text-xs text-gray-500 mb-2">{pedido.tipo_entrega}</div>
                                                                                                                                       )}
