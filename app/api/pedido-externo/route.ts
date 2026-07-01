@@ -118,17 +118,14 @@ export async function POST(req: NextRequest) {
             .from('pedidos')
             .insert({
                       estabelecimento_id,
-                      restaurante_slug: body.slug,
                       cliente_nome: body.cliente.nome,
                       cliente_telefone: body.cliente.telefone,
                       itens,
                       valor_total: body.valor_total,
                       endereco: body.cliente.endereco || '',
                       tipo_entrega: body.tipo_entrega,
-                      forma_pagamento: body.forma_pagamento || '',
                       observacoes: body.observacao_geral || '',
                       status: 'em_producao',
-                      origem: 'cardapio_externo',
                       criado_em: new Date().toISOString(),
             })
             .select('id, numero_pedido')
