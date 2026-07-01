@@ -61,7 +61,7 @@ function CozinhaContent() {
           .from('pedidos')
           .select('*')
           .eq('estabelecimento_id', estabId)
-          .in('status', ['em_producao', 'confirmado', 'em_preparo', 'pronto'])
+          .in('status', ['aguardando', 'em_producao', 'confirmado', 'em_preparo', 'pronto'])
           .order('criado_em', { ascending: true })
         if (data) {
                 const novosCount = data.length
@@ -112,7 +112,7 @@ function CozinhaContent() {
             cor: '#EF4444',
             borda: 'border-red-600',
             bg: 'bg-red-950',
-            itens: pedidos.filter(p => p.status === 'em_producao' || p.status === 'confirmado'),
+            itens: pedidos.filter(p => p.status === 'aguardando' || p.status === 'em_producao' || p.status === 'confirmado'),
     },
     {
             key: 'preparo',
