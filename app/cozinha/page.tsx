@@ -142,11 +142,11 @@ function CozinhaContent() {
                                               title="Voltar ao Dashboard"
                                             >
                                   {'<'}
-                                </Link>Link>
-                                <h1 className="text-xl font-bold">Cozinha</h1>h1>
-                      </div>div>
-                      <div className="text-gray-400 text-sm">{agora.toLocaleTimeString('pt-BR')}</div>div>
-              </div>div>
+                                </Link>
+                                <h1 className="text-xl font-bold">Cozinha</h1>
+                      </div>
+                      <div className="text-gray-400 text-sm">{agora.toLocaleTimeString('pt-BR')}
+              </div>
               <div className="grid grid-cols-3 gap-4">
                 {colunas.map(coluna => (
                     <div
@@ -154,37 +154,37 @@ function CozinhaContent() {
                                   className={'rounded-xl border ' + coluna.borda + ' ' + coluna.bg + ' bg-opacity-20 p-3 flex flex-col'}
                                 >
                                 <div className="flex items-center justify-between mb-3">
-                                              <h2 className="font-bold text-sm" style={{ color: coluna.cor }}>{coluna.titulo}</h2>h2>
+                                              <h2 className="font-bold text-sm" style={{ color: coluna.cor }}>{coluna.titulo}</h2>
                                               <span
                                                                 className="text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center text-white"
                                                                 style={{ backgroundColor: coluna.cor }}
                                                               >
                                                 {coluna.itens.length}
-                                              </span>span>
-                                </div>div>
+                                              </span>
+                                </div>
                                 <div className="flex flex-col gap-3 flex-1">
                                   {coluna.itens.length === 0 ? (
-                                                  <div className="text-gray-500 text-sm text-center py-6">Nenhum pedido</div>div>
+                                                  <div className="text-gray-500 text-sm text-center py-6">Nenhum pedido</div>
                                                 ) : (
                                                   coluna.itens.map(pedido => {
                                                                       const config = pedido.status in STATUS_CONFIG ? STATUS_CONFIG[pedido.status as StatusKey] : null
                                                                                           return (
                                                                                                                 <div key={pedido.id} className="bg-gray-800 rounded-lg p-3 border border-gray-700">
                                                                                                                                       <div className="flex items-center justify-between mb-2">
-                                                                                                                                                              <span className="font-bold text-sm">{'#' + pedido.numero_pedido}</span>span>
-                                                                                                                                                              <span className="text-xs text-gray-400">{tempoDecorrido(pedido.criado_em)}</span>span>
-                                                                                                                                        </div>div>
-                                                                                                                                      <div className="text-sm text-gray-300 mb-1">{pedido.cliente_nome}</div>div>
+                                                                                                                                                              <span className="font-bold text-sm">{'#' + pedido.numero_pedido}</span>
+                                                                                                                                                              <span className="text-xs text-gray-400">{tempoDecorrido(pedido.criado_em)}</span>
+                                                                                                                                        </div>
+                                                                                                                                      <div className="text-sm text-gray-300 mb-1">{pedido.cliente_nome}
                                                                                                                   {pedido.tipo_entrega && (
-                                                                                                                                          <div className="text-xs text-gray-500 mb-2">{pedido.tipo_entrega}</div>div>
+                                                                                                                                          <div className="text-xs text-gray-500 mb-2">{pedido.tipo_entrega}</div>
                                                                                                                                       )}
                                                                                                                                       <div className="text-xs text-gray-400 mb-2">
                                                                                                                                         {Array.isArray(pedido.itens) && pedido.itens.map((item, i) => (
-                                                                                                                                            <div key={i}>{item.quantidade + 'x ' + item.nome}</div>div>
+                                                                                                                                            <div key={i}>{item.quantidade + 'x ' + item.nome}</div>
                                                                                                                                           ))}
-                                                                                                                                        </div>div>
+                                                                                                                                        </div>
                                                                                                                   {pedido.observacoes && (
-                                                                                                                                          <div className="text-xs text-yellow-400 mb-2 italic">{'Obs: ' + pedido.observacoes}</div>div>
+                                                                                                                                          <div className="text-xs text-yellow-400 mb-2 italic">{'Obs: ' + pedido.observacoes}</div>
                                                                                                                                       )}
                                                                                                                   {config && pedido.status !== 'entregue' && (
                                                                                                                                           <div className="mt-2">
@@ -194,25 +194,25 @@ function CozinhaContent() {
                                                                                                                                                                                                   style={{ backgroundColor: config.cor }}
                                                                                                                                                                                                 >
                                                                                                                                                                       {config.btnLabel}
-                                                                                                                                                                      </button>button>
-                                                                                                                                            </div>div>
+                                                                                                                                                                      </button>
+                                                                                                                                            </div>
                                                                                                                                       )}
-                                                                                                                  </div>div>
+                                                                                                                  </div>
                                                                                                               )
                                   })
                                                 )}
-                                </div>div>
-                    </div>div>
+                                </div>
+                    </div>
                   ))}
-              </div>div>
-        </div>div>
+              </div>
+        </div>
       )
 }
 
 export default function Cozinha() {
     return (
-          <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Carregando...</div>div>}>
+          <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Carregando...</div>}>
                 <CozinhaContent />
-          </Suspense>Suspense>
+          </Suspense>
         )
-}</div>
+}
